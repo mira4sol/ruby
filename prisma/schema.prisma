@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────
+
+enum WalletPurpose {
+  TRADING
+  SAVINGS
+  GAS
+  GENERAL
+}
+
+enum TransactionType {
+  SEND_SOL
+  SEND_SPL
+  SWAP
+  TRIGGER_ORDER
+  RECURRING_ORDER
+  RECEIVE
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+// ─────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────
+
+model Owner {
+  id          String   @id @default(uuid())
+  privyUserId String   @unique @map("privy_user_id")
+  email       String?  @map("email")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  agents Agent[] @relation("OwnerToAgent")
+
+  @@map("owners")
+}
+
+model Agent {
+  id         String    @id @default(uuid())
+  ownerId    String    @map("owner_id")
+  name       String    @map("name")
+  apiKeyHash String    @unique @map("api_key_hash")
+  isActive   Boolean   @default(true) @map("is_active")
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  owner           Owner            @relation("OwnerToAgent", fields: [ownerId], references: [id], onDelete: Cascade)
+  wallets         AgentWallet[]    @relation("AgentToWallet")
+  transactionLogs TransactionLog[] @relation("AgentToTransactionLog")
+
+  @@index([ownerId])
+  @@map("agents")
+}
+
+model AgentWallet {
+  id            String        @id @default(uuid())
+  agentId       String        @map("agent_id")
+  privyWalletId String        @unique @map("privy_wallet_id")
+  walletAddress String        @unique @map("wallet_address")
+  label         String        @map("label")
+  purpose       WalletPurpose @map("purpose")
+  isDefault     Boolean       @default(false) @map("is_default")
+  isActive      Boolean       @default(true) @map("is_active")
+  deletedAt     DateTime?     @map("deleted_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  agent           Agent            @relation("AgentToWallet", fields: [agentId], references: [id], onDelete: Cascade)
+  policies        WalletPolicy[]   @relation("WalletToPolicy")
+  transactionLogs TransactionLog[] @relation("WalletToTransactionLog")
+
+  @@index([agentId])
+  @@index([walletAddress])
+  @@map("agent_wallets")
+}
+
+model WalletPolicy {
+  id             String   @id @default(uuid())
+  privyPolicyId  String   @unique @map("privy_policy_id")
+  privyWalletId  String   @map("privy_wallet_id")
+  policyName     String   @map("policy_name")
+  policySnapshot String   @map("policy_snapshot")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  wallet AgentWallet @relation("WalletToPolicy", fields: [privyWalletId], references: [privyWalletId], onDelete: Cascade)
+
+  @@index([privyWalletId])
+  @@map("wallet_policies")
+}
+
+model TransactionLog {
+  id        String            @id @default(uuid())
+  agentId   String            @map("agent_id")
+  walletId  String            @map("wallet_id")
+  txHash    String?           @unique @map("tx_hash")
+  type      TransactionType   @map("type")
+  status    TransactionStatus @default(PENDING) @map("status")
+  amountRaw String?           @map("amount_raw")
+  tokenMint String?           @map("token_mint")
+  toAddress String?           @map("to_address")
+  metadata  String?           @map("metadata")
+  errorMsg  String?           @map("error_msg")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  agent  Agent       @relation("AgentToTransactionLog", fields: [agentId], references: [id], onDelete: Cascade)
+  wallet AgentWallet @relation("WalletToTransactionLog", fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([walletId])
+  @@index([txHash])
+  @@index([createdAt])
+  @@map("transaction_logs")
+}
