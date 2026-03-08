@@ -1,5 +1,6 @@
 # Ruby — Project Flow & Privy Integration
-> Cursor must read this file to understand the full system architecture, user flows,
+
+> must read this file to understand the full system architecture, user flows,
 > wallet lifecycle, and how Privy policies are created, applied, and managed.
 > This file governs ALL decisions about auth, wallets, and transactions.
 
@@ -89,6 +90,7 @@ src/
 ## Authentication Architecture
 
 ### Human Authentication (Privy JWT)
+
 All `/api/*` routes (dashboard, agent management) require a valid Privy session token.
 
 ```
@@ -125,6 +127,7 @@ export const privyAuth = async (
 ```
 
 ### Agent Authentication (API Key)
+
 All `/agent/*` routes require a valid API key issued by the human owner.
 
 ```
@@ -153,7 +156,8 @@ export const apiKeyAuth = async (
   const hash = createHash('sha256').update(rawKey).digest('hex')
   const agent = await prisma.agent.findUnique({ where: { api_key_hash: hash } })
 
-  if (!agent || !agent.is_active) return next(new UnauthorizedError('Invalid API key'))
+  if (!agent || !agent.is_active)
+    return next(new UnauthorizedError('Invalid API key'))
 
   req.agent = agent
   next()
@@ -177,8 +181,12 @@ export const apiKeyAuth = async (
 
 ```ts
 // src/services/privyService.ts (sign-up sync)
-export const syncOwner = async (privyUserId: string): Promise<Result<Owner>> => {
-  const existing = await prisma.owner.findUnique({ where: { privy_user_id: privyUserId } })
+export const syncOwner = async (
+  privyUserId: string,
+): Promise<Result<Owner>> => {
+  const existing = await prisma.owner.findUnique({
+    where: { privy_user_id: privyUserId },
+  })
   if (existing) return ok(existing)
 
   const privyUser = await privy.getUser(privyUserId)
@@ -224,7 +232,9 @@ export const createAgentWithWallets = async (
   })
 
   await Promise.all(
-    input.wallets.map((purpose) => walletService.createWalletForAgent(agent.id, purpose)),
+    input.wallets.map((purpose) =>
+      walletService.createWalletForAgent(agent.id, purpose),
+    ),
   )
 
   // Return raw key once — never stored
@@ -237,12 +247,13 @@ export const createAgentWithWallets = async (
 ## Wallet Lifecycle
 
 ### Creating a Wallet
+
 ```ts
 // src/services/walletService.ts
 export const createWalletForAgent = async (
   agentId: string,
   purpose: WalletPurpose,
-): Promise<Result<AgentWallet>> => {
+): Promise<Result<Wallet>> => {
   // 1. Create Privy server wallet
   const privyWallet = await privy.walletApi.create({ chainType: 'solana' })
 
@@ -266,7 +277,9 @@ export const createWalletForAgent = async (
 ```
 
 ### Signing a Transaction
+
 **ALWAYS** run through policy engine before calling Privy to sign:
+
 ```ts
 // src/services/walletService.ts
 export const signAndSend = async (
@@ -274,7 +287,9 @@ export const signAndSend = async (
   serializedTx: string,
   agentId: string,
 ): Promise<Result<string>> => {
-  const wallet = await prisma.agent_wallet.findUnique({ where: { id: walletId } })
+  const wallet = await prisma.agent_wallet.findUnique({
+    where: { id: walletId },
+  })
   if (!wallet) return err(new NotFoundError('Wallet', walletId))
 
   // Policy is enforced by Privy at the enclave level
@@ -290,7 +305,12 @@ export const signAndSend = async (
   })
 
   await prisma.transaction_log.create({
-    data: { agent_id: agentId, wallet_id: walletId, tx_hash: hash, type: 'SEND' },
+    data: {
+      agent_id: agentId,
+      wallet_id: walletId,
+      tx_hash: hash,
+      type: 'SEND',
+    },
   })
 
   return ok(hash)
@@ -302,6 +322,7 @@ export const signAndSend = async (
 ## Privy Policy System
 
 ### How Policies Work
+
 - A **Policy** is attached to a **Privy server wallet**
 - It defines what that wallet is ALLOWED or DENIED to do
 - Privy evaluates policies inside a secure enclave before signing
@@ -310,6 +331,7 @@ export const signAndSend = async (
 - Every wallet MUST have a policy, or all transactions are denied
 
 ### Privy Client Setup
+
 ```ts
 // src/utils/privy.ts
 import { PrivyClient } from '@privy-io/server-auth'
@@ -323,6 +345,7 @@ export const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET, {
 ```
 
 ### Creating a Policy on a Wallet
+
 ```ts
 // src/services/policyService.ts
 export const createPolicy = async (
@@ -357,6 +380,7 @@ Every wallet gets one of these default policies on creation.
 The human can update them later via the dashboard.
 
 ### GAS Wallet — SOL only, tiny amounts
+
 ```ts
 export const GAS_WALLET_DEFAULT_POLICY = {
   version: '1.0' as const,
@@ -387,6 +411,7 @@ export const GAS_WALLET_DEFAULT_POLICY = {
 ```
 
 ### TRADING Wallet — broader access, capped at 10 SOL per tx
+
 ```ts
 export const TRADING_WALLET_DEFAULT_POLICY = {
   version: '1.0' as const,
@@ -429,8 +454,8 @@ export const TRADING_WALLET_DEFAULT_POLICY = {
           operator: 'in',
           value: [
             'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter v6
-            'ComputeBudget111111111111111111111111111111',   // Compute Budget
-            '11111111111111111111111111111111',              // System Program
+            'ComputeBudget111111111111111111111111111111', // Compute Budget
+            '11111111111111111111111111111111', // System Program
           ],
         },
       ],
@@ -447,6 +472,7 @@ export const TRADING_WALLET_DEFAULT_POLICY = {
 ```
 
 ### SAVINGS Wallet — receive only, human approval to withdraw
+
 ```ts
 export const SAVINGS_WALLET_DEFAULT_POLICY = {
   version: '1.0' as const,
@@ -465,6 +491,7 @@ export const SAVINGS_WALLET_DEFAULT_POLICY = {
 ```
 
 ### GENERAL Wallet — 1 SOL cap, standard allowlist
+
 ```ts
 export const GENERAL_WALLET_DEFAULT_POLICY = {
   version: '1.0' as const,
@@ -523,39 +550,46 @@ These are human-controlled via the dashboard. All require `privyAuth` middleware
 ### Supported Policy Scenarios (all managed by our API)
 
 **1. Max SOL transfer**
+
 ```ts
 { field_source: 'solana_system_program_instruction', field: 'Transfer.lamports', operator: 'lte', value: '1000000000' }
 ```
 
 **2. Allowlist recipients**
+
 ```ts
 { field_source: 'solana_system_program_instruction', field: 'Transfer.to', operator: 'in', value: ['addr1', 'addr2'] }
 ```
 
 **3. Denylist recipients**
+
 ```ts
 { field_source: 'solana_system_program_instruction', field: 'Transfer.to', operator: 'in', value: ['badAddr1'] }
 // action: 'DENY'
 ```
 
 **4. Allowlist programs (e.g. Jupiter only)**
+
 ```ts
 { field_source: 'solana_program_instruction', field: 'programId', operator: 'in', value: ['JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4'] }
 ```
 
 **5. Time-bound access window**
+
 ```ts
 { field_source: 'system', field: 'current_unix_timestamp', operator: 'gte', value: '1756699200' }
 { field_source: 'system', field: 'current_unix_timestamp', operator: 'lt',  value: '1759291200' }
 ```
 
 **6. SPL token transfer with mint + amount cap**
+
 ```ts
 { field_source: 'solana_token_program_instruction', field: 'TransferChecked.mint', operator: 'eq', value: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' }
 { field_source: 'solana_token_program_instruction', field: 'TransferChecked.amount', operator: 'lte', value: '5000000' }
 ```
 
 **7. Block key export**
+
 ```ts
 { method: 'exportPrivateKey', conditions: [], action: 'DENY' }
 ```
@@ -578,23 +612,25 @@ These routes use `apiKeyAuth` middleware. The agent provides `x-api-key` header.
 | `POST` | `/agent/chat`                        | LLM chat → natural language wallet actions |
 
 Both human and agent can perform wallet activities:
+
 - **Human** uses `/api/agents/:agentId/wallets/:walletId/...` (Privy auth)
 - **Agent** uses `/agent/wallets/:label/...` (API key auth)
-Both paths call the same underlying `walletService` methods.
+  Both paths call the same underlying `walletService` methods.
 
 ---
 
 ## Wallet Operations — Service Layer
 
 ### Send Native SOL
+
 ```ts
 // src/services/walletService.ts
 export const sendSOL = async (
-  agentWalletId: string,
+  walletId: string,
   toAddress: string,
   lamports: number,
 ): Promise<Result<string>> => {
-  const wallet = await getWalletOrFail(agentWalletId)
+  const wallet = await getWalletOrFail(walletId)
 
   const connection = getSolanaConnection()
   const tx = new Transaction().add(
@@ -608,15 +644,18 @@ export const sendSOL = async (
   tx.recentBlockhash = blockhash
   tx.feePayer = new PublicKey(wallet.wallet_address)
 
-  const serialized = tx.serialize({ requireAllSignatures: false }).toString('base64')
-  return signAndSend(agentWalletId, serialized, wallet.agent_id)
+  const serialized = tx
+    .serialize({ requireAllSignatures: false })
+    .toString('base64')
+  return signAndSend(walletId, serialized, wallet.agent_id)
 }
 ```
 
 ### Send SPL Token
+
 ```ts
 export const sendSPL = async (
-  agentWalletId: string,
+  walletId: string,
   mint: string,
   toAddress: string,
   amount: bigint,
@@ -627,9 +666,10 @@ export const sendSPL = async (
 ```
 
 ### Swap via Jupiter
+
 ```ts
 export const swapOnJupiter = async (
-  agentWalletId: string,
+  walletId: string,
   inputMint: string,
   outputMint: string,
   amount: number,
@@ -642,15 +682,16 @@ export const swapOnJupiter = async (
 ```
 
 ### Launch Token via bags.fm
+
 ```ts
 // src/services/bagsService.ts
 import { BagsSDK } from '@bagsfm/bags-sdk'
 
 export const launchToken = async (
-  agentWalletId: string,
+  walletId: string,
   params: LaunchTokenParams,
 ): Promise<Result<string>> => {
-  const wallet = await getWalletOrFail(agentWalletId)
+  const wallet = await getWalletOrFail(walletId)
   const bags = new BagsSDK({ apiKey: env.BAGS_API_KEY })
 
   // bags SDK returns an unsigned transaction
@@ -663,7 +704,7 @@ export const launchToken = async (
     initialBuyAmount: params.initialBuyAmount,
   })
 
-  return signAndSend(agentWalletId, transaction, wallet.agent_id)
+  return signAndSend(walletId, transaction, wallet.agent_id)
 }
 ```
 

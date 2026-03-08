@@ -3,15 +3,17 @@ import {
   TransactionType,
   WalletPurpose,
 } from '../generated/prisma/client'
-import { ConflictError, NotFoundError } from '../types/errors'
+import { getDefaultPolicyForPurpose } from '../templates/policyTemplates'
+import type {
+  BirdEyeWalletPortfolio,
+  BirdEyeWalletTransactionHistory,
+} from '../types/birdeye.interface'
+import { AppError, ConflictError, NotFoundError } from '../types/errors'
 import { Result, err, ok } from '../types/result'
-import {
-  buildSOLTransfer,
-  getConnection,
-  getSOLBalance,
-} from '../utils/solana.util'
-import { buildSPLTransfer, getSPLBalances } from '../utils/spl.util'
-import { getDefaultPolicyForPurpose } from './policyService'
+import { birdEyeWalletRequests } from '../utils/http_request/birdeye/birdeye_wallet.request'
+import { buildSOLTransfer, getConnection } from '../utils/solana.util'
+import { buildSPLTransfer } from '../utils/spl.util'
+import { policyService } from './policyService'
 import { prismaService } from './prismaService'
 import { privyService } from './privyService'
 import { transactionLogService } from './transactionLogService'
@@ -35,14 +37,29 @@ export const walletService = {
       label: string
     }>
   > => {
-    // 1. Create Privy server wallet
-    const privyResult = await privyService.createServerWallet()
+    // 1. Create policy explicitly via Privy Policy API
+    const policyParams = getDefaultPolicyForPurpose(purpose)
+    const policyResult = await policyService.createPolicy(policyParams)
+
+    // We strictly enforce policies, so fail if policy creation fails
+    if (!policyResult.success) {
+      console.error(
+        '[Wallet] Failed to construct default policy:',
+        policyResult.error,
+      )
+      return err(policyResult.error)
+    }
+
+    const policyId = policyResult.data.id
+
+    // 2. Create Privy server wallet with the policy attached
+    const privyResult = await privyService.createServerWallet([policyId])
     if (!privyResult.success) return privyResult
 
     const walletLabel = label ?? purpose.toLowerCase()
 
     // 2. Persist to DB
-    const wallet = await prismaService.prisma.agentWallet.create({
+    const wallet = await prismaService.prisma.wallet.create({
       data: {
         agentId,
         privyWalletId: privyResult.data.id,
@@ -59,23 +76,6 @@ export const walletService = {
         label: true,
       },
     })
-
-    // 3. Attach default policy (best-effort — log but don't fail wallet creation)
-    try {
-      const policyDef = getDefaultPolicyForPurpose(purpose)
-      // NOTE: Policy creation via Privy API is available but depends on Privy plan.
-      // For now, store the policy snapshot locally for reference.
-      await prismaService.prisma.walletPolicy.create({
-        data: {
-          privyPolicyId: `local-${wallet.id}`,
-          privyWalletId: privyResult.data.id,
-          policyName: policyDef.name,
-          policySnapshot: JSON.stringify(policyDef),
-        },
-      })
-    } catch (policyError) {
-      console.error('[Wallet] Failed to attach default policy:', policyError)
-    }
 
     return ok(wallet)
   },
@@ -97,7 +97,7 @@ export const walletService = {
       }>
     >
   > => {
-    const wallets = await prismaService.prisma.agentWallet.findMany({
+    const wallets = await prismaService.prisma.wallet.findMany({
       where: { agentId, isActive: true, deletedAt: null },
       select: {
         id: true,
@@ -128,7 +128,7 @@ export const walletService = {
       agentId: string
     }>
   > => {
-    const wallet = await prismaService.prisma.agentWallet.findFirst({
+    const wallet = await prismaService.prisma.wallet.findFirst({
       where: {
         agentId,
         label: label.toLowerCase(),
@@ -163,7 +163,7 @@ export const walletService = {
       agentId: string
     }>
   > => {
-    const wallet = await prismaService.prisma.agentWallet.findUnique({
+    const wallet = await prismaService.prisma.wallet.findUnique({
       where: { id: walletId },
       select: {
         id: true,
@@ -179,32 +179,47 @@ export const walletService = {
   },
 
   /**
-   * Get SOL + SPL balances for a wallet.
+   * Get total portfolio for a wallet via BirdEye.
    */
   getBalance: async (
     walletAddress: string,
-  ): Promise<
-    Result<{
-      sol: number
-      tokens: Array<{
-        mint: string
-        amount: string
-        decimals: number
-        uiAmount: number
-      }>
-    }>
-  > => {
-    const connection = getConnection()
+  ): Promise<Result<BirdEyeWalletPortfolio>> => {
+    const portfolioRes =
+      await birdEyeWalletRequests.getWalletPortfolio(walletAddress)
 
-    const [solBalance, splBalances] = await Promise.all([
-      getSOLBalance(connection, walletAddress),
-      getSPLBalances(connection, walletAddress),
-    ])
+    if (!portfolioRes.success || !portfolioRes.data) {
+      return err(
+        new AppError(
+          portfolioRes.message || 'Failed to fetch BirdEye portfolio',
+          'BIRDEYE_API_ERROR',
+          500,
+        ),
+      )
+    }
 
-    return ok({
-      sol: solBalance / 1e9, // Convert lamports to SOL
-      tokens: splBalances,
-    })
+    return ok(portfolioRes.data)
+  },
+
+  /**
+   * Get transaction history for a wallet via BirdEye.
+   */
+  getTransactionHistory: async (
+    walletAddress: string,
+  ): Promise<Result<BirdEyeWalletTransactionHistory>> => {
+    const historyRes =
+      await birdEyeWalletRequests.getWalletTransactionHistory(walletAddress)
+
+    if (!historyRes.success || !historyRes.data) {
+      return err(
+        new AppError(
+          historyRes.message || 'Failed to fetch BirdEye transaction history',
+          'BIRDEYE_API_ERROR',
+          500,
+        ),
+      )
+    }
+
+    return ok(historyRes.data)
   },
 
   /**
@@ -221,8 +236,11 @@ export const walletService = {
     // Check for assets
     const balanceResult = await walletService.getBalance(wallet.walletAddress)
     if (balanceResult.success) {
-      const { sol, tokens } = balanceResult.data
-      if (sol > 0.001 || tokens.some((t) => parseFloat(t.amount) > 0)) {
+      const portfolio = balanceResult.data
+      const hasBalance =
+        portfolio.items && portfolio.items.some((t) => t.uiAmount > 0)
+
+      if (hasBalance) {
         return err(
           new ConflictError(
             'Cannot delete wallet with non-zero balance. Transfer all assets first.',
@@ -232,7 +250,7 @@ export const walletService = {
     }
 
     // Soft delete
-    await prismaService.prisma.agentWallet.update({
+    await prismaService.prisma.wallet.update({
       where: { id: walletId },
       data: { isActive: false, deletedAt: new Date() },
     })
@@ -249,12 +267,12 @@ export const walletService = {
   ): Promise<Result<{ success: boolean }>> => {
     await prismaService.prisma.$transaction(async (tx) => {
       // Unset all defaults for this agent
-      await tx.agentWallet.updateMany({
+      await tx.wallet.updateMany({
         where: { agentId },
         data: { isDefault: false },
       })
       // Set the new default
-      await tx.agentWallet.update({
+      await tx.wallet.update({
         where: { id: walletId },
         data: { isDefault: true },
       })

@@ -1,181 +1,95 @@
-import { WalletPurpose } from '../generated/prisma/client'
+import { Policy, PolicyCreateParams } from '@privy-io/node/resources'
+import { AppError } from '../types/errors'
+import { Result, err, ok } from '../types/result'
+import { privy } from '../utils/privy'
 
-// ─────────────────────────────────────
-// Default Policy Definitions
-// ─────────────────────────────────────
+export const policyService = {
+  /**
+   * Create a new policy in Privy
+   */
+  createPolicy: async (
+    policyParams: PolicyCreateParams,
+  ): Promise<Result<Policy>> => {
+    try {
+      const policy = await privy.policies().create(policyParams)
+      return ok(policy)
+    } catch (error) {
+      console.error('[Privy] Failed to create policy:', error)
+      return err(
+        new AppError(
+          'Failed to create policy',
+          'POLICY_CREATE_FAILED',
+          500,
+          error,
+        ),
+      )
+    }
+  },
 
-interface PolicyCondition {
-  readonly fieldSource: string
-  readonly field: string
-  readonly operator: string
-  readonly value: string | readonly string[]
-}
+  /**
+   * Get a policy from Privy by ID
+   */
+  getPolicy: async (policyId: string): Promise<Result<Policy>> => {
+    try {
+      const policy = await privy.policies().get(policyId)
+      return ok(policy)
+    } catch (error) {
+      console.error(`[Privy] Failed to get policy ${policyId}:`, error)
+      return err(
+        new AppError('Failed to get policy', 'POLICY_GET_FAILED', 500, error),
+      )
+    }
+  },
 
-interface PolicyRule {
-  readonly name: string
-  readonly method: string
-  readonly action: 'ALLOW' | 'DENY'
-  readonly conditions: readonly PolicyCondition[]
-}
+  /**
+   * Update a policy in Privy
+   */
+  updatePolicy: async (
+    policyId: string,
+    policyParams: Partial<PolicyCreateParams>,
+  ): Promise<Result<Policy>> => {
+    try {
+      // The privy SDK expects separate id and params instead of passing id within params.
+      const policy = await privy.policies().update(policyId, policyParams)
+      return ok(policy)
+    } catch (error: any) {
+      console.error(
+        `[Privy] Failed to update policy ${policyId}:`,
+        error?.response || error,
+      )
+      return err(
+        new AppError(
+          'Failed to update policy',
+          'POLICY_UPDATE_FAILED',
+          500,
+          error,
+        ),
+      )
+    }
+  },
 
-export interface PolicyDefinition {
-  readonly version: '1.0'
-  readonly name: string
-  readonly chainType: 'solana'
-  readonly rules: readonly PolicyRule[]
-}
-
-export const GAS_WALLET_POLICY: PolicyDefinition = {
-  version: '1.0',
-  name: 'Gas wallet defaults — SOL micro-transfers only',
-  chainType: 'solana',
-  rules: [
-    {
-      name: 'Allow SOL transfers up to 0.1 SOL',
-      method: 'signAndSendTransaction',
-      conditions: [
-        {
-          fieldSource: 'solana_system_program_instruction',
-          field: 'Transfer.lamports',
-          operator: 'lte',
-          value: '100000000',
-        },
-      ],
-      action: 'ALLOW',
-    },
-    {
-      name: 'Block private key export',
-      method: 'exportPrivateKey',
-      conditions: [],
-      action: 'DENY',
-    },
-  ],
-} as const
-
-export const TRADING_WALLET_POLICY: PolicyDefinition = {
-  version: '1.0',
-  name: 'Trading wallet defaults — capped SOL + SPL + programs',
-  chainType: 'solana',
-  rules: [
-    {
-      name: 'Allow SOL transfers up to 10 SOL',
-      method: 'signAndSendTransaction',
-      conditions: [
-        {
-          fieldSource: 'solana_system_program_instruction',
-          field: 'Transfer.lamports',
-          operator: 'lte',
-          value: '10000000000',
-        },
-      ],
-      action: 'ALLOW',
-    },
-    {
-      name: 'Allow SPL token transfers',
-      method: 'signAndSendTransaction',
-      conditions: [
-        {
-          fieldSource: 'solana_token_program_instruction',
-          field: 'instructionName',
-          operator: 'in',
-          value: ['TransferChecked', 'Transfer'],
-        },
-      ],
-      action: 'ALLOW',
-    },
-    {
-      name: 'Allow Jupiter and Compute Budget programs',
-      method: 'signAndSendTransaction',
-      conditions: [
-        {
-          fieldSource: 'solana_program_instruction',
-          field: 'programId',
-          operator: 'in',
-          value: [
-            'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
-            'ComputeBudget111111111111111111111111111111',
-            '11111111111111111111111111111111',
-          ],
-        },
-      ],
-      action: 'ALLOW',
-    },
-    {
-      name: 'Block private key export',
-      method: 'exportPrivateKey',
-      conditions: [],
-      action: 'DENY',
-    },
-  ],
-} as const
-
-export const SAVINGS_WALLET_POLICY: PolicyDefinition = {
-  version: '1.0',
-  name: 'Savings wallet defaults — receive only, no outbound',
-  chainType: 'solana',
-  rules: [
-    {
-      name: 'Block private key export',
-      method: 'exportPrivateKey',
-      conditions: [],
-      action: 'DENY',
-    },
-  ],
-} as const
-
-export const GENERAL_WALLET_POLICY: PolicyDefinition = {
-  version: '1.0',
-  name: 'General wallet defaults — 1 SOL cap',
-  chainType: 'solana',
-  rules: [
-    {
-      name: 'Allow SOL transfers up to 1 SOL',
-      method: 'signAndSendTransaction',
-      conditions: [
-        {
-          fieldSource: 'solana_system_program_instruction',
-          field: 'Transfer.lamports',
-          operator: 'lte',
-          value: '1000000000',
-        },
-      ],
-      action: 'ALLOW',
-    },
-    {
-      name: 'Allow SPL TransferChecked',
-      method: 'signAndSendTransaction',
-      conditions: [
-        {
-          fieldSource: 'solana_token_program_instruction',
-          field: 'instructionName',
-          operator: 'eq',
-          value: 'TransferChecked',
-        },
-      ],
-      action: 'ALLOW',
-    },
-    {
-      name: 'Block private key export',
-      method: 'exportPrivateKey',
-      conditions: [],
-      action: 'DENY',
-    },
-  ],
-} as const
-
-// ─────────────────────────────────────
-// Policy lookup
-// ─────────────────────────────────────
-
-const POLICY_MAP: Record<WalletPurpose, PolicyDefinition> = {
-  GAS: GAS_WALLET_POLICY,
-  TRADING: TRADING_WALLET_POLICY,
-  SAVINGS: SAVINGS_WALLET_POLICY,
-  GENERAL: GENERAL_WALLET_POLICY,
-}
-
-export const getDefaultPolicyForPurpose = (
-  purpose: WalletPurpose,
-): PolicyDefinition => {
-  return POLICY_MAP[purpose]
+  /**
+   * Delete a policy from Privy
+   */
+  deletePolicy: async (
+    policyId: string,
+  ): Promise<Result<{ success: boolean }>> => {
+    try {
+      // The Privy SDK's delete method expects the policy ID as the first argument,
+      // and an optional options object (e.g., { authorization_context: {} }) as the second.
+      // Based on the instruction, we're adding an empty options object as the second argument.
+      await privy.policies().delete(policyId, {})
+      return ok({ success: true })
+    } catch (error) {
+      console.error(`[Privy] Failed to delete policy ${policyId}:`, error)
+      return err(
+        new AppError(
+          'Failed to delete policy',
+          'POLICY_DELETE_FAILED',
+          500,
+          error,
+        ),
+      )
+    }
+  },
 }

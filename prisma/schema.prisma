@@ -44,7 +44,9 @@ model Owner {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  agents Agent[] @relation("OwnerToAgent")
+  agents          Agent[]          @relation("OwnerToAgent")
+  wallets         Wallet[]         @relation("OwnerToWallet")
+  transactionLogs TransactionLog[] @relation("OwnerToTransactionLog")
 
   @@map("owners")
 }
@@ -60,68 +62,60 @@ model Agent {
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
   owner           Owner            @relation("OwnerToAgent", fields: [ownerId], references: [id], onDelete: Cascade)
-  wallets         AgentWallet[]    @relation("AgentToWallet")
+  wallets         Wallet[]         @relation("AgentToWallet")
   transactionLogs TransactionLog[] @relation("AgentToTransactionLog")
 
   @@index([ownerId])
   @@map("agents")
 }
 
-model AgentWallet {
-  id            String        @id @default(uuid())
-  agentId       String        @map("agent_id")
-  privyWalletId String        @unique @map("privy_wallet_id")
-  walletAddress String        @unique @map("wallet_address")
-  label         String        @map("label")
-  purpose       WalletPurpose @map("purpose")
-  isDefault     Boolean       @default(false) @map("is_default")
-  isActive      Boolean       @default(true) @map("is_active")
-  deletedAt     DateTime?     @map("deleted_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+model Wallet {
+  id                       String        @id @default(uuid())
+  ownerId                  String?       @map("owner_id")
+  agentId                  String        @map("agent_id")
+  privyWalletId            String        @unique @map("privy_wallet_id")
+  walletAddress            String        @unique @map("wallet_address")
+  label                    String        @map("label")
+  purpose                  WalletPurpose @map("purpose")
+  isDefault                Boolean       @default(false) @map("is_default")
+  isActive                 Boolean       @default(true) @map("is_active")
+  allowAgentPolicyMutation Boolean       @default(false) @map("allow_agent_policy_mutation")
+  deletedAt                DateTime?     @map("deleted_at")
+  createdAt                DateTime      @default(now()) @map("created_at")
+  updatedAt                DateTime      @updatedAt @map("updated_at")
 
+  owner           Owner?           @relation("OwnerToWallet", fields: [ownerId], references: [id], onDelete: Cascade)
   agent           Agent            @relation("AgentToWallet", fields: [agentId], references: [id], onDelete: Cascade)
-  policies        WalletPolicy[]   @relation("WalletToPolicy")
   transactionLogs TransactionLog[] @relation("WalletToTransactionLog")
 
+  @@index([ownerId])
   @@index([agentId])
   @@index([walletAddress])
-  @@map("agent_wallets")
-}
-
-model WalletPolicy {
-  id             String   @id @default(uuid())
-  privyPolicyId  String   @unique @map("privy_policy_id")
-  privyWalletId  String   @map("privy_wallet_id")
-  policyName     String   @map("policy_name")
-  policySnapshot String   @map("policy_snapshot")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  wallet AgentWallet @relation("WalletToPolicy", fields: [privyWalletId], references: [privyWalletId], onDelete: Cascade)
-
-  @@index([privyWalletId])
-  @@map("wallet_policies")
+  @@map("wallets")
 }
 
 model TransactionLog {
   id        String            @id @default(uuid())
+  ownerId   String?           @map("owner_id")
   agentId   String            @map("agent_id")
   walletId  String            @map("wallet_id")
   txHash    String?           @unique @map("tx_hash")
   type      TransactionType   @map("type")
   status    TransactionStatus @default(PENDING) @map("status")
   amountRaw String?           @map("amount_raw")
+  amountUSD Float?            @map("amount_usd")
   tokenMint String?           @map("token_mint")
   toAddress String?           @map("to_address")
-  metadata  String?           @map("metadata")
+  metadata  Json?             @map("metadata")
   errorMsg  String?           @map("error_msg")
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")
 
-  agent  Agent       @relation("AgentToTransactionLog", fields: [agentId], references: [id], onDelete: Cascade)
-  wallet AgentWallet @relation("WalletToTransactionLog", fields: [walletId], references: [id], onDelete: Cascade)
+  owner  Owner? @relation("OwnerToTransactionLog", fields: [ownerId], references: [id], onDelete: Cascade)
+  agent  Agent  @relation("AgentToTransactionLog", fields: [agentId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation("WalletToTransactionLog", fields: [walletId], references: [id], onDelete: Cascade)
 
+  @@index([ownerId])
   @@index([agentId])
   @@index([walletId])
   @@index([txHash])

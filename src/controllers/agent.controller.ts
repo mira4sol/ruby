@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { agentService } from '../services/agentService'
+import { authService } from '../services/auth.service'
 import type { CreateAgentInput } from '../types/schemas'
 
 export const agentController = {
@@ -12,12 +13,16 @@ export const agentController = {
     next: NextFunction,
   ): Promise<void> => {
     try {
+      console.log('privy user', req.privyUser)
       if (!req.privyUser) {
         res.status(401).json({ success: false, message: 'Not authenticated' })
         return
       }
 
       const input = req.body as CreateAgentInput
+      // const ownerResult = await authService.syncOwner(req.privyUser.id)
+      // if (!ownerResult.success) return next(ownerResult.error)
+
       const result = await agentService.create(req.privyUser.id, input)
       if (!result.success) return next(result.error)
 
@@ -43,8 +48,12 @@ export const agentController = {
 
       const page = parseInt(req.query.page as string) || 1
       const limit = parseInt(req.query.limit as string) || 20
+
+      const ownerResult = await authService.syncOwner(req.privyUser.id)
+      if (!ownerResult.success) return next(ownerResult.error)
+
       const result = await agentService.listByOwner(
-        req.privyUser.id,
+        ownerResult.data.id,
         page,
         limit,
       )
@@ -71,7 +80,11 @@ export const agentController = {
       }
 
       const agentId = req.params.agentId as string
-      const result = await agentService.getById(agentId, req.privyUser.id)
+
+      const ownerResult = await authService.syncOwner(req.privyUser.id)
+      if (!ownerResult.success) return next(ownerResult.error)
+
+      const result = await agentService.getById(agentId, ownerResult.data.id)
       if (!result.success) return next(result.error)
 
       res.status(200).json({ success: true, data: result.data })
@@ -95,7 +108,11 @@ export const agentController = {
       }
 
       const agentId = req.params.agentId as string
-      const result = await agentService.delete(agentId, req.privyUser.id)
+
+      const ownerResult = await authService.syncOwner(req.privyUser.id)
+      if (!ownerResult.success) return next(ownerResult.error)
+
+      const result = await agentService.delete(agentId, ownerResult.data.id)
       if (!result.success) return next(result.error)
 
       res.status(200).json({ success: true, data: result.data })
@@ -119,9 +136,13 @@ export const agentController = {
       }
 
       const agentId = req.params.agentId as string
+
+      const ownerResult = await authService.syncOwner(req.privyUser.id)
+      if (!ownerResult.success) return next(ownerResult.error)
+
       const result = await agentService.regenerateApiKey(
         agentId,
-        req.privyUser.id,
+        ownerResult.data.id,
       )
       if (!result.success) return next(result.error)
 

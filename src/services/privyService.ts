@@ -16,11 +16,13 @@ export const privyService = {
   /**
    * Create a Privy server wallet (Solana).
    */
-  createServerWallet: async (): Promise<
-    Result<{ id: string; address: string }>
-  > => {
+  createServerWallet: async (
+    policyIds?: string[],
+  ): Promise<Result<{ id: string; address: string }>> => {
     try {
-      const wallet = await privy.wallets().create({ chain_type: 'solana' })
+      const wallet = await privy
+        .wallets()
+        .create({ chain_type: 'solana', policy_ids: policyIds })
       return ok({ id: wallet.id, address: wallet.address })
     } catch (error) {
       console.error('[Privy] Failed to create server wallet:', error)
@@ -119,6 +121,7 @@ export const privyService = {
 
       const owner = await prismaService.prisma.owner.create({
         data: {
+          id: privyUserId,
           privyUserId,
           email,
         },

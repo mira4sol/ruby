@@ -5,12 +5,16 @@ import {
   BirdEyeWalletTransactionHistory,
 } from '@/types/birdeye.interface'
 import { apiResponse } from '@/utils/api.helpers'
-import { birdEyeHeader } from '@/utils/birdeye.util'
+import { env } from '@/utils/env'
 import axios, { AxiosInstance } from 'axios'
 
 const api: AxiosInstance = axios.create({
   baseURL: 'https://public-api.birdeye.so',
-  headers: birdEyeHeader,
+  headers: {
+    accept: 'application/json',
+    'x-chain': 'solana',
+    'X-API-KEY': env.BIRDEYE_API_KEY,
+  },
 })
 
 export const birdEyeWalletRequests = {

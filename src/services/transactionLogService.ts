@@ -18,7 +18,7 @@ export const transactionLogService = {
     amountRaw?: string
     tokenMint?: string
     toAddress?: string
-    metadata?: string
+    metadata?: any
   }): Promise<Result<{ id: string }>> => {
     try {
       const log = await prismaService.prisma.transactionLog.create({
@@ -30,7 +30,9 @@ export const transactionLogService = {
           amountRaw: params.amountRaw ?? null,
           tokenMint: params.tokenMint ?? null,
           toAddress: params.toAddress ?? null,
-          metadata: params.metadata ?? null,
+          ...(params.metadata !== undefined
+            ? { metadata: params.metadata }
+            : {}),
           status: 'PENDING',
         },
         select: { id: true },
@@ -79,7 +81,7 @@ export const transactionLogService = {
         amountRaw: string | null
         tokenMint: string | null
         toAddress: string | null
-        metadata: string | null
+        metadata: any
         createdAt: Date
       }>
       total: number

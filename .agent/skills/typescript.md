@@ -1,4 +1,5 @@
 # TypeScript & Node.js Engineering Standards
+
 > Cursor must read and follow this file for ALL TypeScript/Node.js code in this project.
 > These are non-negotiable engineering standards. Every file written must comply.
 
@@ -18,6 +19,7 @@
 ## TypeScript Rules
 
 ### NEVER use `any`
+
 ```ts
 // ❌ NEVER
 const handler = (req: any, res: any) => {}
@@ -29,6 +31,7 @@ const data: ApiResponse = await response.json()
 ```
 
 ### ALWAYS use explicit return types
+
 ```ts
 // ❌ NEVER — implicit return type
 const getAgent = async (id: string) => {
@@ -42,6 +45,7 @@ const getAgent = async (id: string): Promise<Agent | null> => {
 ```
 
 ### ALWAYS use arrow functions
+
 ```ts
 // ❌ NEVER — function keyword
 async function createWallet(agentId: string) {}
@@ -53,6 +57,7 @@ export const hashApiKey = (key: string): string => {}
 ```
 
 ### ALWAYS use `interface` for object shapes, `type` for unions/aliases
+
 ```ts
 // ✅ Object shapes → interface
 interface Agent {
@@ -65,10 +70,13 @@ interface Agent {
 
 // ✅ Unions, aliases, computed types → type
 type WalletPurpose = 'TRADING' | 'SAVINGS' | 'GAS' | 'GENERAL'
-type ApiResponse<T> = { data: T; success: true } | { error: string; success: false }
+type ApiResponse<T> =
+  | { data: T; success: true }
+  | { error: string; success: false }
 ```
 
 ### ALWAYS use `readonly` for immutable data
+
 ```ts
 interface PolicyRule {
   readonly name: string
@@ -79,9 +87,10 @@ interface PolicyRule {
 ```
 
 ### ALWAYS use `as const` for static objects
+
 ```ts
 const WALLET_PURPOSES = ['TRADING', 'SAVINGS', 'GAS', 'GENERAL'] as const
-type WalletPurpose = typeof WALLET_PURPOSES[number]
+type WalletPurpose = (typeof WALLET_PURPOSES)[number]
 
 const HTTP_STATUS = {
   OK: 200,
@@ -99,6 +108,7 @@ const HTTP_STATUS = {
 ## Error Handling
 
 ### ALWAYS use typed custom errors
+
 ```ts
 // src/types/errors.ts
 export class AppError extends Error {
@@ -139,6 +149,7 @@ export class ValidationError extends AppError {
 ```
 
 ### ALWAYS use Result pattern for service-layer operations
+
 ```ts
 // src/types/result.ts
 export type Result<T, E = AppError> =
@@ -146,10 +157,14 @@ export type Result<T, E = AppError> =
   | { success: false; error: E }
 
 export const ok = <T>(data: T): Result<T> => ({ success: true, data })
-export const err = <E extends AppError>(error: E): Result<never, E> => ({ success: false, error })
+export const err = <E extends AppError>(error: E): Result<never, E> => ({
+  success: false,
+  error,
+})
 ```
 
 ### ALWAYS handle errors at controller layer
+
 ```ts
 // src/middlewares/errorHandler.ts
 import { Request, Response, NextFunction } from 'express'
@@ -202,6 +217,7 @@ src/
 ```
 
 ### Controller pattern — thin controllers only
+
 ```ts
 // src/controllers/agentController.ts
 import { Request, Response, NextFunction } from 'express'
@@ -223,6 +239,7 @@ export const createAgent = async (
 ```
 
 ### Service pattern — all business logic
+
 ```ts
 // src/services/agentService.ts
 import { Result, ok, err } from '../types/result'
@@ -230,7 +247,10 @@ import { NotFoundError, ValidationError } from '../types/errors'
 import { prisma } from '../utils/prisma'
 
 export const agentService = {
-  create: async (input: CreateAgentInput, ownerId: string): Promise<Result<Agent>> => {
+  create: async (
+    input: CreateAgentInput,
+    ownerId: string,
+  ): Promise<Result<Agent>> => {
     const owner = await prisma.owner.findUnique({ where: { id: ownerId } })
     if (!owner) return err(new NotFoundError('Owner', ownerId))
 
@@ -252,12 +272,15 @@ export const agentService = {
 ## Environment Variables
 
 ### ALWAYS use a typed env config
+
 ```ts
 // src/utils/env.ts
 import { z } from 'zod'
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
   PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string().url(),
   PRIVY_APP_ID: z.string().min(1),
@@ -278,6 +301,7 @@ export const env = envSchema.parse(process.env)
 ## Async Patterns
 
 ### ALWAYS await — never fire and forget without error handling
+
 ```ts
 // ❌ NEVER
 someAsyncThing()
@@ -290,6 +314,7 @@ someAsyncThing().catch((error) => logger.error('Background task failed', error))
 ```
 
 ### ALWAYS use Promise.all for parallel async operations
+
 ```ts
 // ❌ Sequential — slow
 const balance = await getBalance(walletId)
@@ -306,23 +331,24 @@ const [balance, history] = await Promise.all([
 
 ## Naming Conventions
 
-| Thing | Convention | Example |
-|---|---|---|
-| Files | `camelCase.ts` | `agentService.ts` |
-| Variables | `camelCase` | `agentWallet` |
-| Functions | `camelCase` | `createWallet` |
-| Types/Interfaces | `PascalCase` | `AgentWallet` |
-| Enums | `SCREAMING_SNAKE_CASE` | `WALLET_PURPOSE` |
-| Constants | `SCREAMING_SNAKE_CASE` | `MAX_WALLETS_PER_AGENT` |
-| DB columns | `snake_case` (Prisma) | `owner_id`, `created_at` |
-| Route params | `camelCase` | `/agents/:agentId` |
-| Env variables | `SCREAMING_SNAKE_CASE` | `PRIVY_APP_SECRET` |
+| Thing            | Convention             | Example                  |
+| ---------------- | ---------------------- | ------------------------ |
+| Files            | `camelCase.ts`         | `agentService.ts`        |
+| Variables        | `camelCase`            | `wallet`                 |
+| Functions        | `camelCase`            | `createWallet`           |
+| Types/Interfaces | `PascalCase`           | `Wallet`                 |
+| Enums            | `SCREAMING_SNAKE_CASE` | `WALLET_PURPOSE`         |
+| Constants        | `SCREAMING_SNAKE_CASE` | `MAX_WALLETS_PER_AGENT`  |
+| DB columns       | `snake_case` (Prisma)  | `owner_id`, `created_at` |
+| Route params     | `camelCase`            | `/agents/:agentId`       |
+| Env variables    | `SCREAMING_SNAKE_CASE` | `PRIVY_APP_SECRET`       |
 
 ---
 
 ## Import Order
 
 Always sort imports in this order (enforced by ESLint):
+
 ```ts
 // 1. Node built-ins
 import { randomBytes, createHash } from 'crypto'
@@ -336,7 +362,7 @@ import { agentService } from '../services/agentService'
 import { AppError } from '../types/errors'
 
 // 4. Types (import type)
-import type { Agent, AgentWallet } from '../types'
+import type { Agent, Wallet } from '../types'
 ```
 
 ---
@@ -344,27 +370,32 @@ import type { Agent, AgentWallet } from '../types'
 ## Validation
 
 ### ALWAYS validate request bodies with Zod
+
 ```ts
 import { z } from 'zod'
 
 export const createAgentSchema = z.object({
   name: z.string().min(1).max(100),
-  wallets: z.array(z.enum(['TRADING', 'SAVINGS', 'GAS'])).min(1).default(['TRADING', 'GAS']),
+  wallets: z
+    .array(z.enum(['TRADING', 'SAVINGS', 'GAS']))
+    .min(1)
+    .default(['TRADING', 'GAS']),
 })
 
 export type CreateAgentInput = z.infer<typeof createAgentSchema>
 
 // In middleware
-export const validate = (schema: z.ZodSchema) => (
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): void => {
-  const result = schema.safeParse(req.body)
-  if (!result.success) return next(new ValidationError('Invalid request body', result.error.flatten()))
-  req.body = result.data
-  next()
-}
+export const validate =
+  (schema: z.ZodSchema) =>
+  (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.body)
+    if (!result.success)
+      return next(
+        new ValidationError('Invalid request body', result.error.flatten()),
+      )
+    req.body = result.data
+    next()
+  }
 ```
 
 ---
@@ -403,6 +434,7 @@ export const validate = (schema: z.ZodSchema) => (
 ## Package Standards
 
 Core packages always used in this project:
+
 ```json
 {
   "dependencies": {

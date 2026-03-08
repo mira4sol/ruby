@@ -7,12 +7,19 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction,
 ): void => {
-  if (error instanceof AppError) {
-    res.status(error.statusCode).json({
+  if (
+    error instanceof AppError ||
+    (error &&
+      typeof error === 'object' &&
+      'isAppError' in error &&
+      error.isAppError)
+  ) {
+    const appErr = error as AppError
+    res.status(appErr.statusCode).json({
       success: false,
-      code: error.code,
-      message: error.message,
-      ...(error.details ? { details: error.details } : {}),
+      code: appErr.code,
+      message: appErr.message,
+      ...(appErr.details ? { details: appErr.details } : {}),
     })
     return
   }

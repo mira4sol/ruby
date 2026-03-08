@@ -17,7 +17,7 @@ export const privyAuth = async (
 ): Promise<void> => {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return next(new UnauthorizedError('Missing authorization token'))
-  console.log('token', token)
+  // console.log('token', token)
 
   try {
     const claims = await privy.utils().auth().verifyIdentityToken(token)
@@ -26,7 +26,7 @@ export const privyAuth = async (
     //   app_id: env.PRIVY_APP_ID,
     //   verification_key: verificationKey,
     // })
-    console.log('claims', claims)
+    // console.log('claims', claims)
     req.privyUser = claims
     next()
   } catch (error) {

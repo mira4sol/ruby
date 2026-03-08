@@ -1,13 +1,5 @@
-import { BirdEyeTimePeriod } from '../types/birdeye.interface'
-import { env } from './env'
+import { BirdEyeTimePeriod } from '@/types/birdeye.interface'
 import { birdEyeRequests } from './http_request/birdeye.request'
-
-export const birdEyeHeader = {
-  accept: 'application/json',
-  'x-chain': 'solana',
-  'X-API-KEY': env.BIRDEYE_API_KEY,
-}
-
 export const getBirdeyeTimeParams = (
   timeframe: BirdEyeTimePeriod,
 ): { type: BirdEyeTimePeriod; time_from: number; time_to: number } => {

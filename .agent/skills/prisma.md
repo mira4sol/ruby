@@ -23,11 +23,11 @@
 
 | Thing          | Convention              | Example              |
 | -------------- | ----------------------- | -------------------- |
-| Model name     | `PascalCase`            | `AgentWallet`        |
+| Model name     | `PascalCase`            | `Wallet`             |
 | DB table name  | `snake_case` plural     | `agent_wallets`      |
 | Field name     | `camelCase` in schema   | `createdAt`          |
 | DB column name | `snake_case` via `@map` | `created_at`         |
-| Relation name  | `PascalCase`            | `AgentWalletToAgent` |
+| Relation name  | `PascalCase`            | `WalletToAgent`      |
 | Enum name      | `PascalCase`            | `WalletPurpose`      |
 | Enum values    | `SCREAMING_SNAKE_CASE`  | `TRADING`, `SAVINGS` |
 
@@ -99,14 +99,14 @@ model Agent {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   owner            Owner             @relation("OwnerToAgent", fields: [ownerId], references: [id], onDelete: Cascade)
-  wallets          AgentWallet[]
+  wallets          Wallet[]
   transactionLogs  TransactionLog[]
 
   @@index([ownerId])
   @@map("agents")
 }
 
-model AgentWallet {
+model Wallet {
   id            String        @id @default(uuid())
   agentId       String        @map("agent_id")
   privyWalletId String        @unique @map("privy_wallet_id")
@@ -135,7 +135,7 @@ model WalletPolicy {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  wallet AgentWallet @relation("WalletToPolicy", fields: [privyWalletId], references: [privyWalletId], onDelete: Cascade)
+  wallet Wallet @relation("WalletToPolicy", fields: [privyWalletId], references: [privyWalletId], onDelete: Cascade)
 
   @@index([privyWalletId])
   @@map("wallet_policies")
@@ -156,7 +156,7 @@ model TransactionLog {
   updatedAt   DateTime          @updatedAt @map("updated_at")
 
   agent  Agent       @relation("AgentToTransactionLog", fields: [agentId], references: [id], onDelete: Cascade)
-  wallet AgentWallet @relation("WalletToTransactionLog", fields: [walletId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation("WalletToTransactionLog", fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([agentId])
   @@index([walletId])
@@ -215,7 +215,7 @@ const agent = await prisma.agent.findUnique({
 // ✅ Use $transaction for atomic operations
 const [agent, wallet] = await prisma.$transaction(async (tx) => {
   const newAgent = await tx.agent.create({ data: { ... } })
-  const newWallet = await tx.agentWallet.create({ data: { agent_id: newAgent.id, ... } })
+  const newWallet = await tx.wallet.create({ data: { agent_id: newAgent.id, ... } })
   return [newAgent, newWallet]
 })
 ```
@@ -224,7 +224,7 @@ const [agent, wallet] = await prisma.$transaction(async (tx) => {
 
 ```ts
 // ✅ Always include take + skip (or cursor-based) for lists
-const wallets = await prisma.agentWallet.findMany({
+const wallets = await prisma.wallet.findMany({
   where: { agent_id: agentId },
   take: 20,
   skip: (page - 1) * 20,
@@ -315,7 +315,7 @@ export default defineConfig({
 For agents and wallets, prefer soft delete over hard delete:
 
 ```prisma
-// In schema — add to Agent and AgentWallet
+// In schema — add to Agent and Wallet
 deletedAt DateTime? @map("deleted_at")
 
 // In queries — always filter out deleted records
@@ -337,7 +337,7 @@ await prisma.agent.update({
 ```ts
 // ❌ N+1 queries — never loop and query inside
 for (const agent of agents) {
-  const wallets = await prisma.agentWallet.findMany({
+  const wallets = await prisma.wallet.findMany({
     where: { agent_id: agent.id },
   })
 }

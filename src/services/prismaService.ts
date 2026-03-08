@@ -61,3 +61,4 @@ export class PrismaService {
 // Export a singleton instance
 export const prismaService = PrismaService.getInstance()
 export default prismaService
+export const prisma = prismaService.prisma

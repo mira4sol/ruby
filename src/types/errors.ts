@@ -1,4 +1,6 @@
 export class AppError extends Error {
+  public readonly isAppError = true
+
   constructor(
     public readonly message: string,
     public readonly code: string,
