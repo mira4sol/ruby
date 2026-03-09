@@ -9,13 +9,16 @@ async function main() {
   console.log(`Fetching open orders for wallet: ${label}...`)
 
   try {
-    const response = await fetch(`${BASE_URL}/wallets/${label}/orders`, {
-      method: 'GET',
-      headers: {
-        'x-api-key': API_KEY,
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${BASE_URL}/wallets/${label}/orders?orderStatus=active`,
+      {
+        method: 'GET',
+        headers: {
+          'x-api-key': API_KEY,
+          'Content-Type': 'application/json',
+        },
       },
-    })
+    )
 
     const data = await response.json()
     console.log('Response Status:', response.status)

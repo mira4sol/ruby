@@ -196,7 +196,7 @@ Place a Limit/Trigger order via Jupiter. Executed on-chain when the output amoun
 {
   inputMint: string   // Token Mint Address to sell
   outputMint: string  // Token Mint Address to buy
-  inAmount: string    // Exact input amount string, specified in SMALLEST units (with decimals)
+  inAmount: string    // Amount given in human-readable units (e.g., 1 for 1 SOL)
   targetPrice: number // The target price point which fulfills this order
   expiredAt?: string  // Optional ISO 8601 expiry timestamp for the order
 }
@@ -208,9 +208,8 @@ Place a Limit/Trigger order via Jupiter. Executed on-chain when the output amoun
 {
   success: boolean
   data: {
-    // Arbitrary Jupiter limit order creation payload data
-    txHash: string
-    [key: string]: any
+    txId: string // Solana transaction signature
+    logId: string // Internal tracking ID
   }
 }
 ```
@@ -229,9 +228,14 @@ Set up a continuous Dollar Cost Averaging arrangement via Jupiter.
 {
   inputMint: string // Token Mint Address to sell
   outputMint: string // Token Mint Address to buy
-  inAmount: string // TOTAL sum amount in SMALLEST units (with decimals) as a string
-  numberOfOrders: number // Total chunk count (Integer, min: 2)
-  intervalSeconds: number // Interval step between orders, in seconds
+  params: {
+    time: {
+      inAmount: string // Amount given in human-readable units (e.g., 1 for 1 SOL)
+      numberOfOrders: number // Total chunk count (Integer, min: 2)
+      interval: number // Interval step between orders, in seconds
+      startAt: number | null // Optional start timestamp (Unix seconds)
+    }
+  }
 }
 ```
 
@@ -241,9 +245,8 @@ Set up a continuous Dollar Cost Averaging arrangement via Jupiter.
 {
   success: boolean
   data: {
-    // Arbitrary Jupiter DCA order creation payload data
-    txHash: string
-    [key: string]: any
+    txId: string // Solana transaction signature
+    logId: string // Internal tracking ID
   }
 }
 ```
@@ -417,6 +420,48 @@ example: https://api.jup.ag/price/v3?ids=So1111111111111111111111111111111111111
     blockId: number;
     decimals: number;
     priceChange24h: number;  // 24-hour price change
+  }
+}
+```
+
+---
+
+## 11. Cancel Orders
+
+Cancel an open Trigger or Recurring order. Since Jupiter processes these on-chain, this endpoint initiates a cancellation transaction, signs it via Privy, and sends it to the RPC.
+
+### `POST /wallets/:label/trigger/:orderKey/cancel`
+
+- **URL parameters**:
+  - `label`: The `label` property of the target wallet.
+  - `orderKey`: The `orderKey` property of the order to cancel (can be found in `GET /wallets/:label/orders`).
+
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    txId: string // Solana transaction signature
+    logId: string // Internal tracking ID
+  }
+}
+```
+
+### `POST /wallets/:label/recurring/:orderKey/cancel`
+
+- **URL parameters**:
+  - `label`: The `label` property of the target wallet.
+  - `orderKey`: The `orderKey` property of the DCA order to cancel (can be found in `GET /wallets/:label/orders`).
+
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    txId: string // Solana transaction signature
+    logId: string // Internal tracking ID
   }
 }
 ```

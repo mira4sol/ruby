@@ -10,7 +10,7 @@ async function main() {
 
   try {
     const response = await fetch(
-      `${BASE_URL}/wallets/${label}/history?page=1&limit=5`,
+      `${BASE_URL}/wallets/${label}/history?page=1&limit=100`,
       {
         method: 'GET',
         headers: {

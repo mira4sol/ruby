@@ -5,14 +5,14 @@ const API_KEY = '1d45d4ad6b171a4bcc4f26e29ed3da4f2b4d945cb55b5ba3'
 const BASE_URL = 'http://localhost:5001/agent'
 
 async function main() {
-  const label = 'TRADING' // Adjust as needed
+  const label = 'general' // Adjust as needed
   console.log(`Creating limit (trigger) order for wallet: ${label}...`)
 
   const payload = {
     inputMint: 'So11111111111111111111111111111111111111112', // WSOL
     outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-    inAmount: '10000000', // 0.01 SOL in lamports
-    targetPrice: 155.0, // Trigger when SOL hits $155
+    inAmount: '0.07', // 0.01 SOL
+    targetPrice: 87, // Trigger when SOL hits $155
   }
 
   try {

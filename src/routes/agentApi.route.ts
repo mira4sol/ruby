@@ -43,6 +43,14 @@ router.post(
   validate(recurringOrderSchema),
   agentApiController.createRecurringOrder,
 )
+router.post(
+  '/wallets/:label/trigger/:orderKey/cancel',
+  agentApiController.cancelTriggerOrder,
+)
+router.post(
+  '/wallets/:label/recurring/:orderKey/cancel',
+  agentApiController.cancelRecurringOrder,
+)
 router.get('/wallets/:label/history', agentApiController.getHistory)
 router.get('/wallets/:label/orders', agentApiController.getOrders)
 

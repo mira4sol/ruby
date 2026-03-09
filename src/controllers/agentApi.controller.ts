@@ -266,4 +266,64 @@ export const agentApiController = {
       next(error)
     }
   },
+
+  /**
+   * POST /agent/wallets/:label/trigger/:orderKey/cancel — Cancel trigger order
+   */
+  cancelTriggerOrder: async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const label = req.params.label as string
+      const orderKey = req.params.orderKey as string
+
+      const walletResult = await walletService.getWalletByLabel(
+        req.agent!.id,
+        label,
+      )
+      if (!walletResult.success) return next(walletResult.error)
+
+      const result = await jupiterService.cancelTriggerOrder(
+        walletResult.data.id,
+        orderKey,
+        req.agent!.id,
+      )
+      if (!result.success) return next(result.error)
+      res.status(200).json({ success: true, data: result.data })
+    } catch (error) {
+      next(error)
+    }
+  },
+
+  /**
+   * POST /agent/wallets/:label/recurring/:orderKey/cancel — Cancel recurring order
+   */
+  cancelRecurringOrder: async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const label = req.params.label as string
+      const orderKey = req.params.orderKey as string
+
+      const walletResult = await walletService.getWalletByLabel(
+        req.agent!.id,
+        label,
+      )
+      if (!walletResult.success) return next(walletResult.error)
+
+      const result = await jupiterService.cancelRecurringOrder(
+        walletResult.data.id,
+        orderKey,
+        req.agent!.id,
+      )
+      if (!result.success) return next(result.error)
+      res.status(200).json({ success: true, data: result.data })
+    } catch (error) {
+      next(error)
+    }
+  },
 }

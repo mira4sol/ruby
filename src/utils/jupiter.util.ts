@@ -106,13 +106,17 @@ export interface TriggerCreateOrderParams {
   outputMint: string
   maker: string
   payer: string
-  inAmount: string
-  outAmount: string
-  expiredAt?: string
+  params: {
+    makingAmount: string
+    takingAmount: string
+    expiredAt?: string
+  }
 }
 
 export interface TriggerOrderResponse {
   order: string // base64 unsigned tx
+  transaction: string
+  requestId: string
 }
 
 export interface TriggerOrder {
@@ -161,13 +165,13 @@ export const jupiterTrigger = {
    */
   cancelOrder: async (
     maker: string,
-    orderId: string,
-  ): Promise<{ order: string }> => {
+    order: string,
+  ): Promise<{ transaction: string; requestId: string }> => {
     return withRetry(async () => {
-      const res = await api.post<{ order: string }>('/trigger/v1/cancelOrder', {
-        maker,
-        orderId,
-      })
+      const res = await api.post<{ transaction: string; requestId: string }>(
+        '/trigger/v1/cancelOrder',
+        { maker, order },
+      )
       return res.data
     })
   },
@@ -175,11 +179,21 @@ export const jupiterTrigger = {
   /**
    * Execute a signed trigger order transaction.
    */
-  execute: async (signedTransaction: string): Promise<{ txId: string }> => {
+  execute: async ({
+    requestId,
+    signedTransaction,
+  }: {
+    signedTransaction: string
+    requestId: string
+  }): Promise<{ signature: string; status: string }> => {
     return withRetry(async () => {
-      const res = await api.post<{ txId: string }>('/trigger/v1/execute', {
-        signedTransaction,
-      })
+      const res = await api.post<{ signature: string; status: string }>(
+        '/trigger/v1/execute',
+        {
+          signedTransaction,
+          requestId,
+        },
+      )
       return res.data
     })
   },
@@ -207,15 +221,15 @@ export const jupiterTrigger = {
 // ─────────────────────────────────────
 
 export interface RecurringCreateOrderParams {
+  user: string
   inputMint: string
   outputMint: string
-  maker: string
-  payer: string
-  inAmount: string
   params: {
     time: {
+      inAmount: string | number
       numberOfOrders: number
       interval: number // seconds
+      startAt: number | null
     }
   }
 }
@@ -273,9 +287,13 @@ export const jupiterRecurring = {
    */
   createOrder: async (
     params: RecurringCreateOrderParams,
-  ): Promise<{ order: string }> => {
+  ): Promise<{ transaction: string; requestId: string }> => {
     return withRetry(async () => {
-      const res = await api.post<{ order: string }>(
+      console.log(
+        '[Jupiter DCA] Sending createOrder payload:',
+        JSON.stringify(params, null, 2),
+      )
+      const res = await api.post<{ transaction: string; requestId: string }>(
         '/recurring/v1/createOrder',
         params,
       )
@@ -287,13 +305,13 @@ export const jupiterRecurring = {
    * Cancel a recurring order.
    */
   cancelOrder: async (
-    maker: string,
-    orderId: string,
-  ): Promise<{ order: string }> => {
+    user: string,
+    order: string,
+  ): Promise<{ transaction: string; requestId: string }> => {
     return withRetry(async () => {
-      const res = await api.post<{ order: string }>(
+      const res = await api.post<{ transaction: string; requestId: string }>(
         '/recurring/v1/cancelOrder',
-        { maker, orderId },
+        { user, order, recurringType: 'time' },
       )
       return res.data
     })
@@ -302,11 +320,29 @@ export const jupiterRecurring = {
   /**
    * Execute a signed recurring order transaction.
    */
-  execute: async (signedTransaction: string): Promise<{ txId: string }> => {
+  execute: async ({
+    requestId,
+    signedTransaction,
+  }: {
+    signedTransaction: string
+    requestId: string
+  }): Promise<{ txId: string }> => {
     return withRetry(async () => {
-      const res = await api.post<{ txId: string }>('/recurring/v1/execute', {
+      const res = await api.post<{
+        txId: string
+        status?: string
+        error?: string
+      }>('/recurring/v1/execute', {
         signedTransaction,
+        requestId,
       })
+      console.log(
+        '[Jupiter DCA] execute response:',
+        res.status,
+        JSON.stringify(res.data, null, 2),
+      )
+      if (res.data?.status === 'Failed') throw new Error(res?.data?.error)
+
       return res.data
     })
   },

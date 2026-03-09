@@ -287,9 +287,14 @@ export const agentChatController = {
               {
                 inputMint: args.inputMint,
                 outputMint: args.outputMint,
-                inAmount: args.inAmount,
-                numberOfOrders: args.numberOfOrders,
-                intervalSeconds: args.intervalSeconds,
+                params: {
+                  time: {
+                    inAmount: args.inAmount,
+                    numberOfOrders: args.numberOfOrders,
+                    interval: args.intervalSeconds,
+                    startAt: null,
+                  },
+                },
               },
               agent.id,
             )

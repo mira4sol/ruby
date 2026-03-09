@@ -320,6 +320,67 @@ export interface BirdEyeTokenItem {
     txHash: string // Solana transaction signature
     logId: string // Internal transaction log ID
   }
+}
+```
+
+### `POST /agents/:agentId/wallets/:walletId/orders/trigger`
+
+- **Description**: Creates a trigger (limit) order for the wallet via Jupiter.
+- **Request Body**:
+
+```typescript
+{
+  inputMint: string // Token Mint Address to sell
+  outputMint: string // Token Mint Address to buy
+  inAmount: string // Amount given in human-readable units (e.g., 1 for 1 SOL)
+  targetPrice: number // The target price point which fulfills this order
+  expiredAt?: string // Optional ISO 8601 expiry timestamp for the order
+}
+```
+
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    txId: string // The Solana transaction signature
+    logId: string // The internal database log ID
+  }
+}
+```
+
+### `POST /agents/:agentId/wallets/:walletId/orders/recurring`
+
+- **Description**: Creates a recurring (DCA) order for the wallet via Jupiter.
+- **Request Body**:
+
+```typescript
+{
+  inputMint: string // Token Mint Address to sell
+  outputMint: string // Token Mint Address to buy
+  params: {
+    time: {
+      inAmount: string // Amount given in human-readable units (e.g., 1 for 1 SOL)
+      numberOfOrders: number // Total chunk count (Integer, min: 2)
+      interval: number // Interval step between orders, in seconds
+      startAt: number | null // Optional start timestamp (Unix seconds)
+    }
+  }
+}
+```
+
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    txId: string // The Solana transaction signature
+    logId: string // The internal database log ID
+  }
+}
+```
 ### `GET /agents/:agentId/wallets/:walletId/transactions`
 
 - **Description**: Fetch the transaction history for a wallet (powered by BirdEye). Returns the list of historical transactions on Solana.
@@ -447,6 +508,38 @@ export interface RecurringOrder {
   data: {
     trigger: TriggerOrder[]
     recurring: RecurringOrder[]
+  }
+}
+```
+
+### `POST /agents/:agentId/wallets/:walletId/orders/trigger/:orderKey/cancel`
+
+- **Description**: Cancels an active trigger (limit) order for the wallet via Jupiter.
+- **Request Body**: None
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    txId: string // The Solana transaction signature of the cancellation
+    logId: string // The internal database log ID of the action
+  }
+}
+```
+
+### `POST /agents/:agentId/wallets/:walletId/orders/recurring/:orderKey/cancel`
+
+- **Description**: Cancels an active recurring (DCA) order for the wallet via Jupiter.
+- **Request Body**: None
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    txId: string // The Solana transaction signature of the cancellation
+    logId: string // The internal database log ID of the action
   }
 }
 ```

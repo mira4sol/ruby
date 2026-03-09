@@ -80,13 +80,26 @@ export type TriggerOrderInput = z.infer<typeof triggerOrderSchema>
 export const recurringOrderSchema = z.object({
   inputMint: z.string().min(32).max(44),
   outputMint: z.string().min(32).max(44),
-  inAmount: z.string().describe('Total amount in smallest units as string'),
-  numberOfOrders: z.number().int().min(2),
-  intervalSeconds: z
-    .number()
-    .int()
-    .positive()
-    .describe('Seconds between each order'),
+  params: z.object({
+    time: z.object({
+      inAmount: z.coerce
+        .number()
+        .positive()
+        .describe('Total amount in smallest units'),
+      numberOfOrders: z.number().int().min(2),
+      interval: z
+        .number()
+        .int()
+        .positive()
+        .describe('Seconds between each order'),
+      startAt: z
+        .number()
+        .int()
+        .nullable()
+        .default(null)
+        .describe('Unix start time'),
+    }),
+  }),
 })
 
 export type RecurringOrderInput = z.infer<typeof recurringOrderSchema>

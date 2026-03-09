@@ -5,15 +5,20 @@ const API_KEY = '1d45d4ad6b171a4bcc4f26e29ed3da4f2b4d945cb55b5ba3'
 const BASE_URL = 'http://localhost:5001/agent'
 
 async function main() {
-  const label = 'TRADING' // Adjust as needed
+  const label = 'general' // Adjust as needed
   console.log(`Creating DCA (recurring) order for wallet: ${label}...`)
 
   const payload = {
     inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
     outputMint: 'So11111111111111111111111111111111111111112', // WSOL
-    inAmount: '10000000', // 10 USDC TOTAL
-    numberOfOrders: 10, // Buy 10 times in chunks
-    intervalSeconds: 3600, // 1 hour intervals
+    params: {
+      time: {
+        inAmount: 1000, // 1000 USDC TOTAL (or whatever)
+        numberOfOrders: 10,
+        interval: 86400, // 1 day
+        startAt: null,
+      },
+    },
   }
 
   try {
