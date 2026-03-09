@@ -367,33 +367,79 @@ export interface BirdEyeTransaction {
 ### `GET /agents/:agentId/wallets/:walletId/orders`
 
 - **Description**: Fetch all trigger (limit) and recurring (DCA) orders for a wallet on Jupiter.
+- **Query Parameters**:
+  - `orderStatus` (optional string, `'active' | 'history'`, default: `'active'`)
 - **Response Shape**:
 
 ```typescript
 export interface TriggerOrder {
-  orderId: string
-  maker: string
+  userPubkey: string
+  orderKey: string
   inputMint: string
   outputMint: string
-  inAmount: string
-  outAmount: string
+  makingAmount: string
+  takingAmount: string
+  remainingMakingAmount: string
+  remainingTakingAmount: string
+  rawMakingAmount: string
+  rawTakingAmount: string
+  rawRemainingMakingAmount: string
+  rawRemainingTakingAmount: string
+  slippageBps: string
   expiredAt: string | null
-  status: string
   createdAt: string
+  updatedAt: string
+  status: string
+  openTx: string
+  closeTx: string | null
+  programVersion: string
+  trades: any[]
 }
 
 export interface RecurringOrder {
-  orderId: string
-  maker: string
+  userPubkey: string
+  orderKey: string
   inputMint: string
   outputMint: string
-  inAmount: string
-  remainingAmount: string
-  numberOfOrders: number
-  completedOrders: number
-  interval: number
-  status: string
+  inDeposited: string
+  inWithdrawn: string
+  rawInDeposited: string
+  rawInWithdrawn: string
+  cycleFrequency: number
+  outWithdrawn: string
+  inAmountPerCycle: string
+  minOutAmount: string
+  maxOutAmount: string
+  inUsed: string
+  outReceived: string
+  rawOutWithdrawn: string
+  rawInAmountPerCycle: string
+  rawMinOutAmount: string
+  rawMaxOutAmount: string
+  rawInUsed: string
+  rawOutReceived: string
+  openTx: string
+  closeTx: string | null
+  userClosed: boolean
   createdAt: string
+  updatedAt: string
+  trades: Array<{
+    orderKey: string
+    keeper: string
+    inputMint: string
+    outputMint: string
+    inputAmount: string
+    outputAmount: string
+    rawInputAmount: string
+    rawOutputAmount: string
+    feeMint: string
+    feeAmount: string
+    rawFeeAmount: string
+    txId: string
+    confirmedAt: string
+    action: string
+    productMeta: any | null
+  }>
 }
 
 {
@@ -487,3 +533,27 @@ export interface PrivyPolicy {
   message: string
 }
 ```
+
+---
+
+## Chat
+
+### `POST /api/chat`
+
+- **Description**: Conversational interface with the agent utilizing xAI (`grok-2`). Supports streaming and automatic tool calling for wallet operations (send, swap, limit orders, DCA).
+- **Security**: Requires a valid `x-api-key` header mapped to the agent.
+- **Request Body Shape**:
+
+```typescript
+{
+  // An array of message history
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system'
+    content: string
+  }>
+}
+```
+
+- **Response Shape**:
+- Streams a plain text response from the LLM. If an API key is missing or invalid, the LLM intercepts it securely and asks for one before proceeding.
+- Typical Response stream outputs real-time explanations and confirmations of queueing on-chain actions through Privy wallets.

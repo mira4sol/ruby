@@ -128,6 +128,9 @@ export const walletService = {
       agentId: string
     }>
   > => {
+    if (!label)
+      return err(new NotFoundError('Wallet', 'unspecified (label is required)'))
+
     const wallet = await prismaService.prisma.wallet.findFirst({
       where: {
         agentId,
@@ -321,6 +324,8 @@ export const walletService = {
       serializedTx,
     )
 
+    console.log('signResult', signResult)
+
     if (!signResult.success) {
       if (logId) {
         await transactionLogService.updateStatus(
@@ -388,6 +393,7 @@ export const walletService = {
     )
 
     if (!signResult.success) {
+      console.log('signResult.error.message', signResult.error.details)
       if (logId) {
         await transactionLogService.updateStatus(
           logId,

@@ -254,8 +254,11 @@ export const agentApiController = {
       )
       if (!walletResult.success) return next(walletResult.error)
 
+      const orderStatus =
+        (req.query.orderStatus as 'active' | 'history') || 'active'
       const result = await jupiterService.getOrders(
         walletResult.data.walletAddress,
+        orderStatus,
       )
       if (!result.success) return next(result.error)
       res.status(200).json({ success: true, data: result.data })

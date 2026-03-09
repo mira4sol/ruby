@@ -74,6 +74,8 @@ export const birdEyeWalletRequests = {
         params: {
           wallet: wallet_address,
           limit: 100,
+          ui_amount_mode: 'scaled',
+          // ui_amount_mode: 'raw',
         },
       })
 

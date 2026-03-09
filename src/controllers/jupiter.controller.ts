@@ -17,8 +17,12 @@ export const jupiterController = {
       const walletResult = await walletService.getWalletById(walletId)
       if (!walletResult.success) return next(walletResult.error)
 
+      const orderStatus =
+        (req.query.orderStatus as 'active' | 'history') || 'active'
+
       const result = await jupiterService.getOrders(
         walletResult.data.walletAddress,
+        orderStatus,
       )
       if (!result.success) return next(result.error)
 

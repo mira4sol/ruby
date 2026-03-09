@@ -2,23 +2,24 @@ import axios, { AxiosInstance } from 'axios'
 import type {
   JupiterExecuteOrderResponse,
   JupiterOrderRequest,
+  JupiterPriceResponse,
   JupiterQuoteOrderResponse,
 } from '../types/jupiter.interface'
-import { env } from './env'
 
 // ─────────────────────────────────────
 // Jupiter API Client
 // ─────────────────────────────────────
 
-const BASE_URL = 'https://api.jup.ag'
+const BASE_URL = 'https://lite-api.jup.ag'
+// const BASE_URL = 'https://api.jup.ag'
 
 const createJupiterApi = (): AxiosInstance => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  if (env.JUPITER_API_KEY) {
-    headers['x-api-key'] = env.JUPITER_API_KEY
-  }
+  // if (env.JUPITER_API_KEY) {
+  // headers['x-api-key'] = env.JUPITER_API_KEY
+  // }
   return axios.create({ baseURL: BASE_URL, headers })
 }
 
@@ -71,8 +72,8 @@ export const jupiterUltra = {
           outputMint: params.outputMint,
           amount: params.amount,
           taker: params.taker,
-          referralAccount: params.referralAccount,
-          referralFee: params.referralFee,
+          // referralAccount: params.referralAccount,
+          // referralFee: params.referralFee,
         },
       })
       return res.data
@@ -115,15 +116,27 @@ export interface TriggerOrderResponse {
 }
 
 export interface TriggerOrder {
-  orderId: string
-  maker: string
+  userPubkey: string
+  orderKey: string
   inputMint: string
   outputMint: string
-  inAmount: string
-  outAmount: string
+  makingAmount: string
+  takingAmount: string
+  remainingMakingAmount: string
+  remainingTakingAmount: string
+  rawMakingAmount: string
+  rawTakingAmount: string
+  rawRemainingMakingAmount: string
+  rawRemainingTakingAmount: string
+  slippageBps: string
   expiredAt: string | null
-  status: string
   createdAt: string
+  updatedAt: string
+  status: string
+  openTx: string
+  closeTx: string | null
+  programVersion: string
+  trades: any[]
 }
 
 export const jupiterTrigger = {
@@ -177,13 +190,14 @@ export const jupiterTrigger = {
   getOrders: async (
     wallet: string,
     page = 1,
-  ): Promise<{ orders: TriggerOrder[]; total: number }> => {
+    orderStatus: 'active' | 'history' = 'active',
+  ): Promise<{ orders: TriggerOrder[]; totalPages: number }> => {
     return withRetry(async () => {
-      const res = await api.get<{ orders: TriggerOrder[]; total: number }>(
+      const res = await api.get<{ orders: TriggerOrder[]; totalPages: number }>(
         '/trigger/v1/getTriggerOrders',
-        { params: { wallet, page } },
+        { params: { user: wallet, page, orderStatus, includeFailedTx: false } },
       )
-      return res.data
+      return { orders: res.data.orders, totalPages: res.data.totalPages }
     })
   },
 }
@@ -207,17 +221,49 @@ export interface RecurringCreateOrderParams {
 }
 
 export interface RecurringOrder {
-  orderId: string
-  maker: string
+  userPubkey: string
+  orderKey: string
   inputMint: string
   outputMint: string
-  inAmount: string
-  remainingAmount: string
-  numberOfOrders: number
-  completedOrders: number
-  interval: number
-  status: string
+  inDeposited: string
+  inWithdrawn: string
+  rawInDeposited: string
+  rawInWithdrawn: string
+  cycleFrequency: number
+  outWithdrawn: string
+  inAmountPerCycle: string
+  minOutAmount: string
+  maxOutAmount: string
+  inUsed: string
+  outReceived: string
+  rawOutWithdrawn: string
+  rawInAmountPerCycle: string
+  rawMinOutAmount: string
+  rawMaxOutAmount: string
+  rawInUsed: string
+  rawOutReceived: string
+  openTx: string
+  closeTx: string | null
+  userClosed: boolean
   createdAt: string
+  updatedAt: string
+  trades: Array<{
+    orderKey: string
+    keeper: string
+    inputMint: string
+    outputMint: string
+    inputAmount: string
+    outputAmount: string
+    rawInputAmount: string
+    rawOutputAmount: string
+    feeMint: string
+    feeAmount: string
+    rawFeeAmount: string
+    txId: string
+    confirmedAt: string
+    action: string
+    productMeta: any | null
+  }>
 }
 
 export const jupiterRecurring = {
@@ -271,12 +317,42 @@ export const jupiterRecurring = {
   getOrders: async (
     wallet: string,
     page = 1,
-  ): Promise<{ orders: RecurringOrder[]; total: number }> => {
+    orderStatus: 'active' | 'history' = 'active',
+  ): Promise<{ orders: RecurringOrder[]; totalPages: number }> => {
     return withRetry(async () => {
-      const res = await api.get<{ orders: RecurringOrder[]; total: number }>(
+      const res = await api.get<{ time: RecurringOrder[]; totalPages: number }>(
         '/recurring/v1/getRecurringOrders',
-        { params: { wallet, page } },
+        {
+          params: {
+            user: wallet,
+            page,
+            recurringType: 'time',
+            orderStatus,
+            mint: null,
+            includeFailedTx: false,
+          },
+        },
       )
+      return { orders: res.data.time, totalPages: res.data.totalPages }
+    })
+  },
+}
+
+// ─────────────────────────────────────
+// Price (v3)
+// ─────────────────────────────────────
+
+export const jupiterPrice = {
+  /**
+   * Get price for token mints.
+   * @param ids - A single token mint address or an array of them.
+   */
+  getPrice: async (ids: string | string[]): Promise<JupiterPriceResponse> => {
+    return withRetry(async () => {
+      const idsStr = Array.isArray(ids) ? ids.join(',') : ids
+      const res = await api.get<JupiterPriceResponse>('/price/v3', {
+        params: { ids: idsStr },
+      })
       return res.data
     })
   },

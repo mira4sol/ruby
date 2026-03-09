@@ -93,8 +93,8 @@ export const buildSPLTransfer = async (
     ),
   )
 
-  const { blockhash } = await connection.getLatestBlockhash()
-  tx.recentBlockhash = blockhash
+  // Privy's API automatically fills the recentBlockhash when this dummy value is used
+  tx.recentBlockhash = '11111111111111111111111111111111'
   tx.feePayer = fromPubkey
 
   // Serialize unsigned (Privy signs via server wallet)

@@ -4,9 +4,16 @@ import { Result, err, ok } from '../types/result'
 import { privy } from '../utils/privy'
 import { prismaService } from './prismaService'
 
+import { env } from '../utils/env'
+
 // CAIP-2 identifiers for Solana chains
 const SOLANA_CAIP2_DEVNET = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
 const SOLANA_CAIP2_MAINNET = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'
+
+const getCaip2 = () =>
+  env.SOLANA_NETWORK === 'mainnet-beta'
+    ? SOLANA_CAIP2_MAINNET
+    : SOLANA_CAIP2_DEVNET
 
 /**
  * Wraps all Privy SDK interactions.
@@ -44,15 +51,16 @@ export const privyService = {
   signAndSendTransaction: async (
     walletId: string,
     transaction: string,
-    caip2 = SOLANA_CAIP2_DEVNET,
+    caip2?: string,
   ): Promise<Result<{ hash: string }>> => {
     try {
+      const targetCaip2 = caip2 || getCaip2()
       const data = await privy
         .wallets()
         .solana()
         .signAndSendTransaction(walletId, {
           transaction,
-          caip2,
+          caip2: targetCaip2,
         })
       return ok({ hash: data.hash })
     } catch (error) {

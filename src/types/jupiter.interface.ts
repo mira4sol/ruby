@@ -96,3 +96,14 @@ export interface JupiterExecuteOrderResponse {
   outputAmountResult: string
   swapEvents: SwapEvent[]
 }
+
+export interface JupiterPriceItem {
+  usdPrice: number
+  blockId: number
+  decimals: number
+  priceChange24h: number
+}
+
+export interface JupiterPriceResponse {
+  [mint: string]: JupiterPriceItem
+}

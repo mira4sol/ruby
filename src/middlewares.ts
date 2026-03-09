@@ -10,7 +10,14 @@ export const injectMiddleware = (app: Express): void => {
   app.use(cors())
   app.use(morgan('combined'))
   app.use(json())
-  app.use(compression())
+  // Skip compression entirely for /api/chat so streaming isn't buffered (compression filter can still wrap res)
+  app.use((req, res, next) => {
+    const path = (req.originalUrl ?? req.url ?? '').split('?')[0]
+    if (path === '/api/chat') {
+      return next()
+    }
+    compression()(req, res, next)
+  })
 }
 
 /**

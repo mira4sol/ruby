@@ -1,3 +1,4 @@
+import { amountInBaseUnits, normalizeSolMint } from '@/utils/solana.util'
 import { TransactionStatus, TransactionType } from '../generated/prisma/client'
 import { AppError } from '../types/errors'
 import { Result, err, ok } from '../types/result'
@@ -7,9 +8,12 @@ import type {
   TriggerOrderInput,
 } from '../types/schemas'
 import {
+  jupiterPrice,
   jupiterRecurring,
   jupiterTrigger,
   jupiterUltra,
+  type RecurringOrder,
+  type TriggerOrder,
 } from '../utils/jupiter.util'
 import { privyService } from './privyService'
 import { transactionLogService } from './transactionLogService'
@@ -35,11 +39,20 @@ export const jupiterService = {
     const wallet = walletResult.data
 
     try {
+      console.log('getting price')
+      const price = await jupiterPrice.getPrice([
+        input.inputMint,
+        input.outputMint,
+      ])
+
       // 1. Get order (quote + unsigned tx)
       const order = await jupiterUltra.getOrder({
-        inputMint: input.inputMint,
-        outputMint: input.outputMint,
-        amount: input.amount,
+        inputMint: normalizeSolMint(input.inputMint),
+        outputMint: normalizeSolMint(input.outputMint),
+        amount: amountInBaseUnits(
+          input.amount,
+          price[input.inputMint].decimals,
+        ),
         taker: wallet.walletAddress,
       })
 
@@ -100,13 +113,15 @@ export const jupiterService = {
         )
       }
 
+      console.log('order', order)
+
       return ok({
         txHash: executeResult.signature,
         logId,
         outAmount: executeResult.outputAmountResult ?? order.outAmount,
       })
-    } catch (error) {
-      console.error('[Jupiter] Swap failed:', error)
+    } catch (error: any) {
+      console.error('[Jupiter] Swap failed:', error?.response || error)
       return err(new AppError('Swap failed', 'SWAP_FAILED', 500, error))
     }
   },
@@ -184,8 +199,8 @@ export const jupiterService = {
       }
 
       return ok({ txId: executeResult.txId, logId })
-    } catch (error) {
-      console.error('[Jupiter] Trigger order failed:', error)
+    } catch (error: any) {
+      console.error('[Jupiter] Trigger order failed:', error?.response || error)
       return err(
         new AppError('Trigger order failed', 'TRIGGER_FAILED', 500, error),
       )
@@ -268,8 +283,11 @@ export const jupiterService = {
       }
 
       return ok({ txId: executeResult.txId, logId })
-    } catch (error) {
-      console.error('[Jupiter] Recurring order failed:', error)
+    } catch (error: any) {
+      console.error(
+        '[Jupiter] Recurring order failed:',
+        error?.response || error,
+      )
       return err(
         new AppError('Recurring order failed', 'RECURRING_FAILED', 500, error),
       )
@@ -281,24 +299,29 @@ export const jupiterService = {
    */
   getOrders: async (
     walletAddress: string,
+    orderStatus: 'active' | 'history' = 'active',
   ): Promise<
     Result<{
-      trigger: unknown[]
-      recurring: unknown[]
+      trigger: TriggerOrder[]
+      recurring: RecurringOrder[]
     }>
   > => {
     try {
       const [triggerResult, recurringResult] = await Promise.all([
-        jupiterTrigger.getOrders(walletAddress),
-        jupiterRecurring.getOrders(walletAddress),
+        jupiterTrigger.getOrders(walletAddress, 1, orderStatus),
+        jupiterRecurring.getOrders(walletAddress, 1, orderStatus),
       ])
 
       return ok({
         trigger: triggerResult.orders,
         recurring: recurringResult.orders,
       })
-    } catch (error) {
-      console.error('[Jupiter] Failed to fetch orders:', error)
+    } catch (error: any) {
+      console.error(
+        '[Jupiter] Failed to fetch orders:',
+        error?.response || error,
+      )
+      console?.log('capture error message', error?.response?.data)
       return err(
         new AppError(
           'Failed to fetch orders',

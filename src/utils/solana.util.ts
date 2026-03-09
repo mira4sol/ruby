@@ -6,6 +6,7 @@ import {
 } from '@solana/web3.js'
 import { env } from './env'
 
+export const NATIVE_SOL_ADDRESS = '11111111111111111111111111111111'
 export const NATIVE_SOL_MINT = 'So11111111111111111111111111111111111111111'
 export const WRAPPED_SOL_MINT = 'So11111111111111111111111111111111111111112'
 
@@ -68,8 +69,8 @@ export const buildSOLTransfer = async (
     }),
   )
 
-  const { blockhash } = await connection.getLatestBlockhash()
-  tx.recentBlockhash = blockhash
+  // Privy's API automatically fills the recentBlockhash when this dummy value is used
+  tx.recentBlockhash = '11111111111111111111111111111111'
   tx.feePayer = fromPubkey
 
   // Serialize without requiring signatures (Privy will sign)
@@ -97,3 +98,17 @@ export const confirmTransaction = async (
     return { confirmed: false, error: String(error) }
   }
 }
+
+/**
+ * Helper function to normalize SOL mint addresses
+ * Jupiter expects wrapped SOL mint, not native SOL addresses
+ */
+export const normalizeSolMint = (mint: string): string => {
+  if (mint === NATIVE_SOL_ADDRESS || mint === NATIVE_SOL_MINT) {
+    return WRAPPED_SOL_MINT
+  }
+  return mint
+}
+
+export const amountInBaseUnits = (amount: number, decimals: number) =>
+  Math.floor(amount * Math.pow(10, decimals))

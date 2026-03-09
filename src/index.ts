@@ -17,5 +17,5 @@ injectErrorHandler(app)
 app.listen(env.PORT, env.HOST, () => {
   // console.log(`Ruby is running on http://${env.HOST}:${env.PORT}`)
   // console.log(`Environment: ${env.NODE_ENV}`)
-  // console.log(`Solana: ${env.SOLANA_NETWORK}`)
+  console.log(`Solana: ${env.SOLANA_NETWORK}`)
 })
