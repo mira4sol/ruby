@@ -8,7 +8,7 @@ description: Full API spec and guide for LLM agents to securely interact with th
 This document is a comprehensive guide for you (the AI Agent) to securely interact with the platform and perform on-chain and off-chain portfolio management for the user.
 The platform handles transaction execution, indexing, and routing internally via Jupiter and BirdEye.
 
-**Base URL**: `http://localhost:5001/agent`
+**Base URL**: `https://static.53.190.27.37.clients.your-server.de/ruby/agent`
 
 ## 🔒 Authentication
 
