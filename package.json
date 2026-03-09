@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node dist/index.js",
     "dev": "npx tsx watch src/index.ts",
     "build": "rimraf dist && npx prisma generate && npx tsc && tsc-alias",
     "prisma:generate": "prisma generate",

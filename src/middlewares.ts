@@ -1,8 +1,9 @@
 import compression from 'compression'
 import cors from 'cors'
-import { Express, json } from 'express'
+import { Express, json, static as static_s } from 'express'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import { join } from 'path'
 import { errorHandler } from './middlewares/errorHandler'
 
 export const injectMiddleware = (app: Express): void => {
@@ -10,6 +11,7 @@ export const injectMiddleware = (app: Express): void => {
   app.use(cors())
   app.use(morgan('combined'))
   app.use(json())
+  app.use('/', static_s(join(__dirname + '/../public')))
   // Skip compression entirely for /api/chat so streaming isn't buffered (compression filter can still wrap res)
   app.use((req, res, next) => {
     const path = (req.originalUrl ?? req.url ?? '').split('?')[0]

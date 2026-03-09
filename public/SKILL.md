@@ -22,13 +22,51 @@ x-api-key: <agent_api_key>
 
 ## How to use this API
 
-**Important**: You can make multiple consecutive calls to achieve a goal.
-For example, if the user asks _"What is my main wallet balance?"_, you should:
+**Important**: You can (and SHOULD) make multiple consecutive calls to safely achieve a goal. Never guess balances, wallet labels, or token holdings.
 
-1. Fetch the list of wallets via `GET /wallets` to find their labels.
-2. Select the matching wallet label.
-3. Call `GET /wallets/:label/balance` to retrieve the balance information.
-4. Present the final result to the user.
+### Core mental model for agents
+
+- Always think in **steps**:
+  1. **Discover context** (which wallets? which labels? which assets?).
+  2. **Validate state** (balances, open orders, prices).
+  3. **Execute actions** (send, swap, create/cancel orders).
+  4. **Confirm results** (re‑fetch balances / history if relevant).
+
+- If you **don’t know the wallet label** the user is referring to:
+  - First call **`GET /wallets`** to list all wallets.
+  - Pick the wallet whose **`label`** or **`purpose`** best matches the user’s wording (e.g. “main”, “trading”, “savings”, “gas”, “general”).
+  - Use that `label` in all subsequent endpoints for this task.
+
+- Before any **send / swap / order creation**, when the user mentions an amount:
+  - Call **`GET /wallets/:label/balance`** for the chosen wallet.
+  - Check that the relevant token (e.g. SOL or a specific SPL mint) has **enough `uiAmount`** to cover:
+    - The requested amount; and
+    - Any likely fees (especially for SOL).
+  - If the balance is **not enough**, clearly explain this to the user instead of trying the transaction blindly.
+
+- When something fails (e.g. `INSUFFICIENT_FUNDS`, `SWAP_FAILED`, `JUPITER_ORDER_FAILED`):
+  - **Read the error code/message**.
+  - Decide whether you should:
+    - Ask the user to deposit more funds or pick a smaller amount, or
+    - Adjust parameters (e.g. lower size, different token, different label).
+  - Do **not** retry the exact same failing request indefinitely.
+
+### Simple examples
+
+- If the user asks _"What is my main wallet balance?"_, you should:
+  1. Fetch the list of wallets via **`GET /wallets`** to find their labels.
+  2. Select the matching wallet label (e.g. `general` or another default wallet).
+  3. Call **`GET /wallets/:label/balance`** to retrieve the balance information.
+  4. Present the final result to the user in a clear, human‑readable way.
+
+- If the user asks _"Swap 1 SOL to USDC"_:
+  1. Call **`GET /wallets`** if needed to decide which wallet label to use.
+  2. Call **`GET /wallets/:label/balance`** to confirm there is at least 1 SOL (plus fees) available.
+  3. If balance is sufficient, call **`POST /wallets/:label/swap`** with:
+     - `inputMint = So11111111111111111111111111111111111111112` (SOL),
+     - `outputMint = <USDC mint address>`,
+     - `amount = 1` (human‑readable SOL amount).
+  4. If the swap succeeds, summarize the result for the user; if it fails, read the error and explain what happened and what to try next.
 
 ---
 
