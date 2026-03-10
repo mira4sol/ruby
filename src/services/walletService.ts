@@ -5,11 +5,14 @@ import {
 } from '../generated/prisma/client'
 import { getDefaultPolicyForPurpose } from '../templates/policyTemplates'
 import type {
+  BirdEyeTokenOverview,
+  BirdEyeTrendingTokens,
   BirdEyeWalletPortfolio,
   BirdEyeWalletTransactionHistory,
 } from '../types/birdeye.interface'
 import { AppError, ConflictError, NotFoundError } from '../types/errors'
 import { Result, err, ok } from '../types/result'
+import { birdEyeTokensRequests } from '../utils/http_request/birdeye/birdeye_tokens.request'
 import { birdEyeWalletRequests } from '../utils/http_request/birdeye/birdeye_wallet.request'
 import { buildSOLTransfer, getConnection } from '../utils/solana.util'
 import { buildSPLTransfer } from '../utils/spl.util'
@@ -223,6 +226,51 @@ export const walletService = {
     }
 
     return ok(historyRes.data)
+  },
+
+  /**
+   * Get token overview via BirdEye.
+   */
+  getTokenOverview: async (
+    tokenAddress: string,
+  ): Promise<Result<BirdEyeTokenOverview>> => {
+    const overviewRes = await birdEyeTokensRequests.tokenOverview(tokenAddress)
+
+    if (!overviewRes.success || !overviewRes.data) {
+      return err(
+        new AppError(
+          overviewRes.message || 'Failed to fetch BirdEye token overview',
+          'BIRDEYE_API_ERROR',
+          500,
+        ),
+      )
+    }
+
+    return ok(overviewRes.data)
+  },
+
+  /**
+   * Get trending tokens via BirdEye.
+   */
+  getTrendingTokens: async (options: {
+    sort_by?: 'rank' | 'volume24hUSD' | 'liquidity'
+    sort_type?: 'asc' | 'desc'
+    offset?: number
+    limit?: number
+  }): Promise<Result<BirdEyeTrendingTokens>> => {
+    const trendingRes = await birdEyeTokensRequests.trendingTokens(options)
+
+    if (!trendingRes.success || !trendingRes.data) {
+      return err(
+        new AppError(
+          trendingRes.message || 'Failed to fetch BirdEye trending tokens',
+          'BIRDEYE_API_ERROR',
+          500,
+        ),
+      )
+    }
+
+    return ok(trendingRes.data)
   },
 
   /**

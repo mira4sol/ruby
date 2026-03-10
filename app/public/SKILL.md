@@ -24,6 +24,18 @@ x-api-key: <agent_api_key>
 
 **Important**: You can (and SHOULD) make multiple consecutive calls to safely achieve a goal. Never guess balances, wallet labels, or token holdings.
 
+### Communication Style & Formatting
+
+- **Format for Humans**: ALWAYS format your messages so they are easy for a human to read. Use Markdown styling (bolding, lists, code blocks, tables) to cleanly separate numbers, metrics, and complex object data. Avoid dumping raw JSON directly to the user unless specifically requested.
+- **Transaction Links**: Whenever your response includes a transaction hash (signature), ALWAYS provide a direct link to view it on Solscan. Format the link using Markdown like this: `[View on Solscan](https://solscan.io/tx/<transaction_signature>)`.
+
+### Proactive Operations
+
+- **Daily Trending Report**: Every day, you should proactively send the human owner a message containing the **top 3 tokens from the trending tokens API** (`GET /tokens/trending`). Include essential data that is important for traders, such as price, liquidity, 24h volume, and 24h price percentage change.
+- **Token Link & Mint Address Extraction**:
+  - If a user sends a valid **Solana mint public key** in the chat, automatically fetch and display its overview using `GET /tokens/:address/overview`.
+  - If a user sends a **link** (such as a DexScreener link, Pump.fun link, or any other URL containing a Solana mint address), extract the mint address from the URL. First explicitly ask the user if they want info on that token (unless they already requested it alongside the link). If they confirm, fetch the overview via `GET /tokens/:address/overview` and present the trader-focused metrics.
+
 ### Core mental model for agents
 
 - Always think in **steps**:
@@ -501,5 +513,115 @@ Cancel an open Trigger or Recurring order. Since Jupiter processes these on-chai
     txId: string // Solana transaction signature
     logId: string // Internal tracking ID
   }
+}
+```
+
+---
+
+## 12. Create Wallet
+
+Dynamically provision a new Privy server wallet for your Agent identity, tailored to a specific purpose (e.g. TRADING, SAVINGS, GAS).
+
+### `POST /wallets`
+
+- **Request Body**:
+
+```typescript
+{
+  purpose: 'TRADING' | 'SAVINGS' | 'GAS' | 'GENERAL'
+  label?: string // Optional custom label (defaults to lowercased purpose)
+}
+```
+
+- **Response Shape**:
+
+```typescript
+{
+  success: boolean
+  data: {
+    id: string
+    walletAddress: string
+    purpose: 'TRADING' | 'SAVINGS' | 'GAS' | 'GENERAL'
+    label: string
+  }
+}
+```
+
+---
+
+## 13. Get Trending Tokens
+
+Fetch a real-time list of trending tokens on Solana, powered by BirdEye.
+
+### `GET /tokens/trending`
+
+- **Query Parameters**:
+  - `sort_by` (optional string, `'rank' | 'volume24hUSD' | 'liquidity'`, default: `'rank'`)
+  - `sort_type` (optional string, `'asc' | 'desc'`, default: `'asc'`)
+  - `offset` (optional number, defaults to 0)
+  - `limit` (optional number, defaults to 20)
+
+- **Response Shape**:
+
+```typescript
+export interface BirdEyeTrendingTokenItem {
+  address: string
+  decimals: number
+  liquidity: number
+  logoURI: string
+  name: string
+  symbol: string
+  volume24hUSD: number
+  volume24hChangePercent: number | null
+  fdv: number
+  marketcap: number
+  rank: number
+  price: number
+  price24hChangePercent: number
+}
+
+{
+  success: boolean
+  data: {
+    updateUnixTime: number
+    updateTime: string
+    tokens: BirdEyeTrendingTokenItem[]
+  }
+}
+```
+
+---
+
+## 14. Get Token Overview
+
+Fetch comprehensive overview data for a specific token by its mint address, powered by BirdEye.
+
+### `GET /tokens/:address/overview`
+
+- **URL parameters**:
+  - `address`: The mint address of the specific token.
+
+- **Response Shape**:
+
+```typescript
+export interface BirdEyeTokenOverview {
+  address: string
+  decimals: number
+  symbol: string
+  name: string
+  marketCap: number
+  fdv: number
+  liquidity: number
+  price: number
+  priceChange24hPercent: number
+  uniqueWallet24h: number
+  totalSupply: number
+  circulatingSupply: number
+  // ... including numerous advanced 1m, 5m, 1h, 24h history metrics
+}
+
+{
+  success: boolean
+  data: BirdEyeTokenOverview
 }
 ```

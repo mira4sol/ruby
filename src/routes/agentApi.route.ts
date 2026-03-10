@@ -3,6 +3,7 @@ import { agentApiController } from '../controllers/agentApi.controller'
 import { apiKeyAuth } from '../middlewares/apiKeyAuth'
 import { validate } from '../middlewares/validate'
 import {
+  createWalletSchema,
   recurringOrderSchema,
   sendSOLSchema,
   sendSPLSchema,
@@ -15,7 +16,16 @@ const router = Router()
 // All agent routes require API key auth
 router.use(apiKeyAuth)
 
+// Token operations
+router.get('/tokens/trending', agentApiController.getTrendingTokens)
+router.get('/tokens/:address/overview', agentApiController.getTokenOverview)
+
 // Wallet operations
+router.post(
+  '/wallets',
+  validate(createWalletSchema),
+  agentApiController.createWallet,
+)
 router.get('/wallets', agentApiController.listWallets)
 router.get('/wallets/:label/balance', agentApiController.getBalance)
 router.post(

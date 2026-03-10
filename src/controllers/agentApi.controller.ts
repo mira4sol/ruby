@@ -3,6 +3,7 @@ import { jupiterService } from '../services/jupiterService'
 import { transactionLogService } from '../services/transactionLogService'
 import { walletService } from '../services/walletService'
 import type {
+  CreateWalletInput,
   RecurringOrderInput,
   SendSOLInput,
   SendSPLInput,
@@ -16,6 +17,28 @@ import type {
  */
 export const agentApiController = {
   /**
+   * POST /agent/wallets
+   */
+  createWallet: async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const input = req.body as CreateWalletInput
+      const result = await walletService.createWalletForAgent(
+        req.agent!.id,
+        input.purpose,
+        input.label,
+      )
+      if (!result.success) return next(result.error)
+      res.status(201).json({ success: true, data: result.data })
+    } catch (error) {
+      next(error)
+    }
+  },
+
+  /**
    * GET /agent/wallets — List all wallets for this agent
    */
   listWallets: async (
@@ -25,6 +48,64 @@ export const agentApiController = {
   ): Promise<void> => {
     try {
       const result = await walletService.listWallets(req.agent!.id)
+      if (!result.success) return next(result.error)
+      res.status(200).json({ success: true, data: result.data })
+    } catch (error) {
+      next(error)
+    }
+  },
+
+  /**
+   * GET /agent/tokens/:address/overview
+   */
+  getTokenOverview: async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const address = req.params.address as string
+      if (!address) {
+        res.status(400).json({ success: false, message: 'Address is required' })
+        return
+      }
+
+      const result = await walletService.getTokenOverview(address)
+      if (!result.success) return next(result.error)
+      res.status(200).json({ success: true, data: result.data })
+    } catch (error) {
+      next(error)
+    }
+  },
+
+  /**
+   * GET /agent/tokens/trending
+   */
+  getTrendingTokens: async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const sort_by = req.query.sort_by as
+        | 'rank'
+        | 'volume24hUSD'
+        | 'liquidity'
+        | undefined
+      const sort_type = req.query.sort_type as 'asc' | 'desc' | undefined
+      const offset = req.query.offset
+        ? parseInt(req.query.offset as string, 10)
+        : undefined
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string, 10)
+        : undefined
+
+      const result = await walletService.getTrendingTokens({
+        sort_by,
+        sort_type,
+        offset,
+        limit,
+      })
       if (!result.success) return next(result.error)
       res.status(200).json({ success: true, data: result.data })
     } catch (error) {
